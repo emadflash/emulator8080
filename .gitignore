@@ -2,3 +2,6 @@
 things
 emulator
 .vscode
+i8080
+*.o
+as
