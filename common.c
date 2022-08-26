@@ -109,6 +109,29 @@ f64 base16_to_f64(char *str, usize length) {
 }
 
 // --------------------------------------------------------------------------
+//                          - Asserts -
+// --------------------------------------------------------------------------
+
+void report_assertion_failure(char *prefix, const char *filename,
+                              usize line_number, const char *function_name,
+                              char *cond, char *msg, ...) {
+    fprintf(stderr, "%s:%zu: %s: %s: ", filename, line_number, prefix,
+            function_name);
+    if (cond) {
+        fprintf(stderr, "`%s` ", cond);
+    }
+
+    if (msg) {
+        va_list ap;
+        va_start(ap, msg);
+        vfprintf(stderr, msg, ap);
+        va_end(ap);
+    }
+
+    fputc('\n', stderr);
+}
+
+// --------------------------------------------------------------------------
 //                          - String -
 // --------------------------------------------------------------------------
 String string_reserve(usize cap) {

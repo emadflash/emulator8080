@@ -1,30 +1,30 @@
 #include "assemblar.h"
 #include "common.h"
 
-#include <stdio.h>
-
 // --------------------------------------------------------------------------
 //                          - TOKEN_Kind -
 // --------------------------------------------------------------------------
 #define TOKEN_KINDS                                                            \
-    TOKEN_KIND(TOKEN_NUM_DECIMAL, "DECIMAL_NUM")                               \
-    TOKEN_KIND(TOKEN_NUM_BINARY, "BINARY_NUM")                                 \
-    TOKEN_KIND(TOKEN_NUM_HEX, "HEX_NUM")                                       \
-    TOKEN_KIND(TOKEN_NUM_OCTAL, "OCTAL_NUM")                                   \
-    TOKEN_KIND(TOKEN_NUM_FLOAT, "FLOAT_NUM")                                   \
+    TOKEN_KIND(TOKEN_FAULTY, "Faulty token!!!")                                \
                                                                                \
-    TOKEN_KIND(TOKEN_COMMA, "COMMA")                                           \
-    TOKEN_KIND(TOKEN_COLON, "COLON")                                           \
-    TOKEN_KIND(TOKEN_SEMICOLON, "SEMICOLON")                                   \
-    TOKEN_KIND(TOKEN_IDENTIFIER, "IDENTIFIER")                                 \
+    TOKEN_KIND(TOKEN_NUMBER_DECIMAL, "decimal number")                         \
+    TOKEN_KIND(TOKEN_NUMBER_BINARY, "binary number")                           \
+    TOKEN_KIND(TOKEN_NUMBER_HEX, "hexadecimal number")                         \
+    TOKEN_KIND(TOKEN_NUMBER_OCTAL, "octal number")                             \
+    TOKEN_KIND(TOKEN_NUMBER_FLOAT, "float number")                             \
                                                                                \
-    TOKEN_KIND(TOKEN_END_OF_FILE, "END_OF_FILE")                               \
+    TOKEN_KIND(TOKEN_COMMA, "Comma")                                           \
+    TOKEN_KIND(TOKEN_COLON, "Colon")                                           \
+    TOKEN_KIND(TOKEN_SEMICOLON, "Semicolon")                                   \
+    TOKEN_KIND(TOKEN_IDENTIFIER, "Identifier")                                 \
+                                                                               \
+    TOKEN_KIND(TOKEN_END_OF_FILE, "end_of_file")                               \
     TOKEN_KIND(TOKEN_Kind_COUNT, NULL)
 
 #define is_token_number(kind)                                                  \
-    (kind == TOKEN_NUM_BINARY || kind == TOKEN_NUM_DECIMAL ||                  \
-     kind == TOKEN_NUM_OCTAL || kind == TOKEN_NUM_HEX ||                       \
-     kind == TOKEN_NUM_FLOAT)
+    (kind == TOKEN_NUMBER_BINARY || kind == TOKEN_NUMBER_DECIMAL ||            \
+     kind == TOKEN_NUMBER_OCTAL || kind == TOKEN_NUMBER_HEX ||                 \
+     kind == TOKEN_NUMBER_FLOAT)
 
 typedef enum {
 #define TOKEN_KIND(kind_name, ...) kind_name,
@@ -49,35 +49,33 @@ struct TOKEN {
     usize text_length;
 
     TOKEN_Kind kind;
+    char *line_start;
     TOKEN_Pos pos;
 };
 
-static TOKEN_Pos make_token_pos(size_t row, size_t col) {
-    return (TOKEN_Pos){.row = row, .col = col};
-}
-
 static TOKEN make_token(char *text, size_t text_length, TOKEN_Kind kind,
-                        TOKEN_Pos pos) {
+                        TOKEN_Pos pos, char *line_start) {
     return (TOKEN){
         .text = text,
         .text_length = text_length,
         .kind = kind,
         .pos = pos,
+        .line_start = line_start,
     };
 }
 
 static f64 number_token_to_f64(TOKEN *token) {
     switch (token->kind) {
-    case TOKEN_NUM_BINARY:
+    case TOKEN_NUMBER_BINARY:
         return base2_to_f64(token->text + 2, token->text_length - 2);
-    case TOKEN_NUM_DECIMAL:
+    case TOKEN_NUMBER_DECIMAL:
         return base10_to_f64(token->text, token->text_length);
-    case TOKEN_NUM_OCTAL:
+    case TOKEN_NUMBER_OCTAL:
         return base8_to_f64(token->text + 2, token->text_length - 2);
-    case TOKEN_NUM_HEX:
+    case TOKEN_NUMBER_HEX:
         return base16_to_f64(token->text + 2, token->text_length - 2);
 
-    default: unreachable();
+    default: Unreachable();
     }
 }
 
@@ -92,7 +90,8 @@ struct Lexer {
 
     int current_char;
     char *line_start;
-    usize error_count;
+
+    char *has_error; /* Error string otherwise NULL */
 };
 
 static TOKEN_Pos current_pos(Lexer *l) {
@@ -100,7 +99,7 @@ static TOKEN_Pos current_pos(Lexer *l) {
 }
 
 static char nextchar(Lexer *l) {
-    assert(l->curr + 1 < l->end);
+    Debug_Assert(l->curr + 1 < l->end);
     l->curr += 1;
     l->col += 1;
     l->current_char = *l->curr;
@@ -108,8 +107,7 @@ static char nextchar(Lexer *l) {
 }
 
 static char *peeknext(Lexer *l) {
-    if (l->curr + 1 >= l->end)
-        return NULL;
+    if (l->curr + 1 >= l->end) return NULL;
     return l->curr + 1;
 }
 
@@ -133,32 +131,36 @@ static void skip_whitespaces(Lexer *l) {
 static void newline(Lexer *l) {
     l->row += 1;
     l->col = 0;
-    l->line_start = l->curr;
+    *l->curr = '\0'; /* replace '\n' with \0, so line would be printted easly
+                        using `line_start` in TOKEKN */
 }
 
-static int generic_number_scan(Lexer *l, bool (*is_vaild_digit)(int)) {
+static void generic_number_scan(Lexer *l, bool (*is_vaild_digit)(int)) {
     char next;
     nextchar(l);
 
     if (!peeknext(l)) {
-        return -1;
+        l->has_error = "Expected a character after this"; /* lexer error */
+        return;
     }
 
     next = *peeknext(l);
     if (!is_vaild_digit(next)) {
-        return -1;
+        l->has_error = "Invaild digit in number"; /* lexer error */
+        return;
     }
 
     while (peeknext(l)) {
         next = *peeknext(l);
-        if (next == ' ' || next == '\n')
+        if (next == ' ' || next == '\n') break;
+
+        if (!is_vaild_digit(next)) {
+            l->has_error = "Invaild digit"; /* lexer error */
             break;
-        if (!is_vaild_digit(next))
-            return -1;
+        }
+
         nextchar(l);
     }
-
-    return 0;
 }
 
 static TOKEN scan_num(Lexer *l) {
@@ -167,43 +169,42 @@ static TOKEN scan_num(Lexer *l) {
     char *save = l->curr;
 
     if (l->current_char == '.') {
-        kind = TOKEN_NUM_FLOAT;
+        kind = TOKEN_NUMBER_FLOAT;
         while (peeknext(l) && is_decimal_digit(*peeknext(l))) {
             nextchar(l);
         }
     } else {
-        kind = TOKEN_NUM_DECIMAL;
-        int err = 0;
+        kind = TOKEN_NUMBER_DECIMAL;
 
         if (l->current_char == '0') {
             char *next = peeknext(l);
             if (next) {
                 switch (*next) {
                 case 'b':
-                    kind = TOKEN_NUM_BINARY;
-                    err = generic_number_scan(l, is_binary_digit);
+                    kind = TOKEN_NUMBER_BINARY;
+                    generic_number_scan(l, is_binary_digit);
                     break;
                 case 'x':
-                    kind = TOKEN_NUM_HEX;
-                    err = generic_number_scan(l, is_hex_digit);
+                    kind = TOKEN_NUMBER_HEX;
+                    generic_number_scan(l, is_hex_digit);
                     break;
                 case 'o':
-                    kind = TOKEN_NUM_OCTAL;
-                    err = generic_number_scan(l, is_octal_digit);
+                    kind = TOKEN_NUMBER_OCTAL;
+                    generic_number_scan(l, is_octal_digit);
                     break;
                 }
             }
         }
 
-        if (kind == TOKEN_NUM_DECIMAL) {
+        if (kind == TOKEN_NUMBER_DECIMAL) {
             while (peeknext(l) &&
                    (is_decimal_digit(*peeknext(l)) || *peeknext(l) == '.')) {
                 if (*peeknext(l) == '.') {
-                    kind = TOKEN_NUM_FLOAT;
+                    kind = TOKEN_NUMBER_FLOAT;
                     nextchar(l);
-                    while (peeknext(l) && is_decimal_digit(*peeknext(l))) {
+
+                    while (peeknext(l) && is_decimal_digit(*peeknext(l)))
                         nextchar(l);
-                    }
                     break;
                 }
                 nextchar(l);
@@ -211,7 +212,7 @@ static TOKEN scan_num(Lexer *l) {
         }
     }
 
-    return make_token(save, l->curr - save + 1, kind, pos);
+    return make_token(save, l->curr - save + 1, kind, pos, l->line_start);
 }
 
 static TOKEN scan_iden(Lexer *l) {
@@ -225,16 +226,7 @@ static TOKEN scan_iden(Lexer *l) {
     }
 
     text_length = l->curr - text + 1;
-    return make_token(text, text_length, TOKEN_IDENTIFIER, pos);
-}
-
-static bool is_punctuation(int ch) {
-    switch (ch) {
-    case ',':
-    case ';':
-    case ':': return true;
-    }
-    return false;
+    return make_token(text, text_length, TOKEN_IDENTIFIER, pos, l->line_start);
 }
 
 static TOKEN scan_punctuation(Lexer *l) {
@@ -244,14 +236,16 @@ static TOKEN scan_punctuation(Lexer *l) {
 
     switch (l->current_char) {
     case ',': kind = TOKEN_COMMA; break;
-
     case ':': kind = TOKEN_COLON; break;
-
     case ';': kind = TOKEN_SEMICOLON; break;
 
-    default: unreachable();
+    default: {
+        l->has_error = "Unknown character";
+        return make_token(save, l->curr - save + 1, TOKEN_FAULTY, pos,
+                          l->line_start); /* error */
     }
-    return make_token(save, l->curr - save + 1, kind, pos);
+    }
+    return make_token(save, l->curr - save + 1, kind, pos, l->line_start);
 }
 
 static Lexer *make_lexer(char *src_cstr) {
@@ -264,12 +258,13 @@ static Lexer *make_lexer(char *src_cstr) {
     l->col = -1;
     l->current_char = -1;
     l->line_start = l->src;
-    l->error_count = 0;
+    l->has_error = NULL;
     return l;
 }
 
-static TOKEN next_token(Lexer *l) {
-    assert(!l->exhausted);
+static TOKEN lexer_next_token(Lexer *l) {
+    Debug_Assert(!l->exhausted);
+
     skip_whitespaces(l);
 
     if (peeknext(l)) {
@@ -277,22 +272,29 @@ static TOKEN next_token(Lexer *l) {
 
         if (l->current_char == '\n') {
             newline(l);
-            return next_token(l);
+            while (peeknext(l) && *peeknext(l) == '\n') {
+                newline(l);
+                nextchar(l);
+            }
+
+            /* set only if there is a new line starting after '\n', so when we
+             * hit EOF, we would be pointing to second last line */
+            if (peeknext(l)) {
+                l->line_start = peeknext(l);
+            }
         } else if (is_num(l))
             return scan_num(l);
         else if (l->current_char == '_' || is_alphabet(l->current_char))
             return scan_iden(l);
-        else if (is_punctuation(l->current_char))
-            return scan_punctuation(l);
-        else {
-            printf("Error: Unknow character: %c\n", l->current_char);
-        }
+
+        return scan_punctuation(l);
     }
 
     l->curr = l->end;
     l->col += 1;
     l->exhausted = true;
-    return make_token(l->curr, 0, TOKEN_END_OF_FILE, current_pos(l));
+    return make_token(l->curr, 0, TOKEN_END_OF_FILE, current_pos(l),
+                      l->line_start);
 }
 
 static Array(TOKEN) slurp_tokens(Lexer *l) {
@@ -301,7 +303,7 @@ static Array(TOKEN) slurp_tokens(Lexer *l) {
 
     init_array(tokens);
 
-    while (tok = next_token(l), tok.kind != TOKEN_END_OF_FILE) {
+    while (tok = lexer_next_token(l), tok.kind != TOKEN_END_OF_FILE) {
         array_push(tokens, tok);
     }
 
@@ -314,9 +316,13 @@ static Array(TOKEN) slurp_tokens(Lexer *l) {
 // --------------------------------------------------------------------------
 typedef struct Parser Parser;
 struct Parser {
+    char *filepath; /* source filepath */
+
     Array(TOKEN) tokens;
     TOKEN *current_token;
     usize current_token_idx;
+
+    int error_count;
 };
 
 static void parser_next_token(Parser *p) {
@@ -326,25 +332,16 @@ static void parser_next_token(Parser *p) {
 }
 
 static TOKEN *parser_peek_next(Parser *p) {
-    if (p->current_token_idx + 1 >= array_length(p->tokens))
-        return NULL;
+    if (p->current_token_idx + 1 >= array_length(p->tokens)) return NULL;
 
     return &p->tokens[p->current_token_idx + 1];
 }
 
-static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
-    TOKEN *n = parser_peek_next(p);
-
-    if (n && n->kind == kind)
-        parser_next_token(p);
-    else
-        unreachable();
-}
-
-static Parser *make_parser(char *src) {
+static Parser *make_parser(char *filepath, char *src) {
     Parser *parser = (Parser *)xmalloc(sizeof(Parser));
     Lexer *lexer = make_lexer(src);
 
+    parser->filepath = filepath;
     parser->tokens = slurp_tokens(lexer);
     parser->current_token_idx = -1;
     parser->current_token = NULL;
@@ -358,6 +355,59 @@ static void free_parser(Parser *p) {
     free(p);
 }
 
+static void parser_log_error(Parser *p, TOKEN *faulty_token, char *prefix,
+                             char *msg, ...) {
+    va_list ap;
+    va_start(ap, msg);
+    fprintf(stderr, "%s:%zu:%zu: %s: ", p->filepath, faulty_token->pos.row,
+            faulty_token->pos.col, prefix);
+    vfprintf(stderr, msg, ap);
+    va_end(ap);
+
+    putc('\n', stderr);
+    fprintf(stderr, "  %s\n", faulty_token->line_start);
+
+    /* print swiggly lines under faulty_token */
+    fprintf(stderr, "  %*.s^",
+            (int)(faulty_token->text - faulty_token->line_start), "");
+    for (usize i = 0; i < faulty_token->text_length; i++)
+        putc('-', stderr);
+
+    fprintf(stderr, "\n\n");
+    p->error_count += 1;
+}
+
+static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
+    TOKEN *n = parser_peek_next(p);
+    Assert(n);
+
+    if (n && n->kind == kind) {
+        parser_next_token(p);
+    } else {
+        parser_log_error(p, n, "Syntax Error", "Expected %s, got %s kind",
+                         token_kind_to_cstring[kind],
+                         token_kind_to_cstring[n->kind]);
+        parser_next_token(p);
+    }
+}
+
+#define parser_match_current(parser, cstring)                                  \
+    are_cstrings_equal(cstring, parser->current_token->text,                   \
+                       parser->current_token->text_length)
+
+/* parser error abstraction */
+#define parser_log_error_expected_register(p, registers)                       \
+    parser_log_error(parser, (p)->current_token, "Syntax Error",               \
+                     "Expected Register( " #registers " ) instead got '%.*s'", \
+                     (p)->current_token->text_length,                          \
+                     (p)->current_token->text);
+
+#define parser_log_error_expected_register_pair(p, register_pairs)             \
+    parser_log_error(                                                          \
+        parser, (p)->current_token, "Syntax Error",                            \
+        "Expected Register Pair( " #register_pairs " ) instead got '%.*s'",    \
+        (p)->current_token->text_length, (p)->current_token->text);
+
 // --------------------------------------------------------------------------
 //                          - Assemblar -
 // --------------------------------------------------------------------------
@@ -367,6 +417,7 @@ Tape make_tape() {
     memset(tape.bytecode, 0x0, 64 * 1024);
     tape.bytecode_count = 0x0;
     tape.origin = 0x0;
+    tape.error_count = 0;
     return tape;
 }
 
@@ -375,7 +426,195 @@ static void emit_byte(Tape *tape, u8 byte) {
     tape->bytecode_count += 1;
 }
 
-Tape as_emit_from_source(char *src) {
+static void ins_with_one_register(Tape *tape, Parser *parser, u8 byteWithA,
+                                  u8 byteB, u8 byteC, u8 byteD, u8 byteE,
+                                  u8 byteH, u8 byteL, u8 byteM) {
+    parser_expect_next(parser, TOKEN_IDENTIFIER);
+    if (parser_match_current(parser, "a"))
+        emit_byte(tape, byteWithA);
+    else if (parser_match_current(parser, "b"))
+        emit_byte(tape, byteB);
+    else if (parser_match_current(parser, "c"))
+        emit_byte(tape, byteC);
+    else if (parser_match_current(parser, "d"))
+        emit_byte(tape, byteD);
+    else if (parser_match_current(parser, "e"))
+        emit_byte(tape, byteE);
+    else if (parser_match_current(parser, "h"))
+        emit_byte(tape, byteH);
+    else if (parser_match_current(parser, "l"))
+        emit_byte(tape, byteL);
+    else if (parser_match_current(parser, "m"))
+        emit_byte(tape, byteM);
+    else {
+        parser_log_error_expected_register(parser, a b c d e h l m);
+    }
+}
+
+static void ins_with_register_pair(Tape *tape, Parser *parser, u8 bByte,
+                                   u8 dByte, u8 hByte, u8 spByte) {
+    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+    if (parser_match_current(parser, "b"))
+        emit_byte(tape, bByte);
+    else if (parser_match_current(parser, "d"))
+        emit_byte(tape, dByte);
+    else if (parser_match_current(parser, "h"))
+        emit_byte(tape, hByte);
+    else if (parser_match_current(parser, "sp"))
+        emit_byte(tape, spByte);
+    else {
+        parser_log_error_expected_register_pair(parser, b d h sp);
+    }
+}
+
+static void ins_with_address(Tape *tape, Parser *parser, u8 emitByte) {
+    emit_byte(tape, emitByte);
+    parser_next_token(parser);
+
+    if (!is_token_number(parser->current_token->kind)) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected address, "
+                         "instead got '%*.s'",
+                         parser->current_token->text_length,
+                         parser->current_token->text);
+    } else {
+        f64 num = number_token_to_f64(parser->current_token);
+        emit_byte(tape, cast(u8)((uint)num & 0xff));
+        emit_byte(tape, cast(u8)(((uint)num >> 8) & 0xff));
+    }
+}
+
+static void ins_with_imm_byte(Tape *tape, Parser *parser, u8 emitByte) {
+    emit_byte(tape, emitByte);
+    parser_next_token(parser);
+
+    if (!is_token_number(parser->current_token->kind)) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected immediate byte, instead got '%*.s'",
+                         parser->current_token->text_length,
+                         parser->current_token->text);
+    } else {
+        f64 num = number_token_to_f64(parser->current_token);
+        emit_byte(tape, cast(u8)((uint)num & 0xff));
+    }
+}
+
+static void ins_mvi(Tape *tape, Parser *parser, u8 emitByte) {
+    parser_expect_next(parser, TOKEN_COMMA);
+    parser_next_token(parser);
+
+    if (!is_token_number(parser->current_token->kind)) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected immediate byte, instead got '%*.s'",
+                         parser->current_token->text_length,
+                         parser->current_token->text);
+    } else {
+        emit_byte(tape, emitByte);
+        f64 num = number_token_to_f64(parser->current_token);
+        emit_byte(tape, cast(u8)((uint)num & 0xff));
+    }
+}
+
+static void ins_stack_ops(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE,
+                          u8 byteHL, u8 bytePSW) {
+    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+    if (parser_match_current(parser, "b"))
+        emit_byte(tape, byteBC);
+    else if (parser_match_current(parser, "d"))
+        emit_byte(tape, byteDE);
+    else if (parser_match_current(parser, "h"))
+        emit_byte(tape, byteHL);
+    else if (parser_match_current(parser, "psw"))
+        emit_byte(tape, bytePSW);
+    else
+        parser_log_error_expected_register_pair(parser, b d h PSW);
+}
+
+static void ins_rst(Tape *tape, Parser *parser, u8 byte0, u8 byte1, u8 byte2,
+                    u8 byte3, u8 byte4, u8 byte5, u8 byte6, u8 byte7) {
+    parser_next_token(parser);
+
+    if (!is_token_number(parser->current_token->kind)) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected number(0..7), instead got '%*.s'",
+                         parser->current_token->text_length,
+                         parser->current_token->text);
+        return;
+    }
+
+    int num = cast(int) number_token_to_f64(parser->current_token);
+
+    switch (num) {
+    case 0: emit_byte(tape, byte0);
+    case 1: emit_byte(tape, byte1);
+    case 2: emit_byte(tape, byte2);
+    case 3: emit_byte(tape, byte3);
+    case 4: emit_byte(tape, byte4);
+    case 5: emit_byte(tape, byte5);
+    case 6: emit_byte(tape, byte6);
+    case 7: emit_byte(tape, byte7);
+    default:
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected number(0..7), instead got '%d'",
+                         cast(int) num);
+    }
+}
+
+static void ins_ldax(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE) {
+    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+    if (parser_match_current(parser, "b"))
+        emit_byte(tape, byteBC);
+    else if (parser_match_current(parser, "d"))
+        emit_byte(tape, byteDE);
+    else {
+        parser_log_error_expected_register_pair(parser, b d h);
+    }
+}
+
+static void ins_lxi(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
+                    u8 byteSP) {
+    bool has_error = false;
+    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+    if (parser_match_current(parser, "b"))
+        emit_byte(tape, byteBC);
+    else if (parser_match_current(parser, "d"))
+        emit_byte(tape, byteDE);
+    else if (parser_match_current(parser, "h"))
+        emit_byte(tape, byteHL);
+    else if (parser_match_current(parser, "sp"))
+        emit_byte(tape, byteSP);
+    else {
+        has_error = true;
+        parser_log_error_expected_register_pair(parser, b d h);
+    }
+
+    parser_expect_next(parser, TOKEN_COMMA);
+    parser_next_token(parser);
+
+    if (!is_token_number(parser->current_token->kind)) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected address, "
+                         "instead got '%*.s'",
+                         parser->current_token->text_length,
+                         parser->current_token->text);
+    } else {
+        f64 num = number_token_to_f64(parser->current_token);
+
+        if (!has_error) {
+            emit_byte(tape, cast(u8)((uint)num & 0xff));
+            emit_byte(tape, cast(u8)(((uint)num >> 8) & 0xff));
+        }
+    }
+}
+
+// --------------------------------------------------------------------------
+//                          - Emit bytes -
+// --------------------------------------------------------------------------
+Tape as_emit_from_source(char *filepath, char *src) {
 #define match_current(cstring)                                                 \
     are_cstrings_equal(cstring, parser->current_token->text,                   \
                        parser->current_token->text_length)
@@ -386,7 +625,7 @@ Tape as_emit_from_source(char *src) {
     Array(TOKEN) labels;
 
     tape = make_tape();
-    parser = make_parser(src);
+    parser = make_parser(filepath, src);
     next = parser_peek_next(parser);
 
     init_array(labels);
@@ -409,323 +648,318 @@ Tape as_emit_from_source(char *src) {
                     emit_byte(&tape, 0x76);
                 }
 
-                /* Mov instruction */
-                if (match_current("mov")) {
-                    parser_next_token(parser);
-
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable(); // raise error
-                    }
-
-                    switch (parser->current_token->text[0]) {
+                /* Mov instruction start */
 #define ins_mov_next_reg(byteWithA, byteWithB, byteWithC, byteWithD,           \
                          byteWithE, byteWithH, byteWithL, byteWithM)           \
-    {                                                                          \
+    do {                                                                       \
         parser_expect_next(parser, TOKEN_COMMA);                               \
-        parser_next_token(parser);                                             \
+        parser_expect_next(parser, TOKEN_IDENTIFIER);                          \
                                                                                \
-        if (parser->current_token->kind != TOKEN_IDENTIFIER) {                 \
-            unreachable();                                                     \
+        if (match_current("a"))                                                \
+            emit_byte(&tape, byteWithA);                                       \
+        else if (match_current("b"))                                           \
+            emit_byte(&tape, byteWithB);                                       \
+        else if (match_current("c"))                                           \
+            emit_byte(&tape, byteWithC);                                       \
+        else if (match_current("d"))                                           \
+            emit_byte(&tape, byteWithD);                                       \
+        else if (match_current("e"))                                           \
+            emit_byte(&tape, byteWithE);                                       \
+        else if (match_current("h"))                                           \
+            emit_byte(&tape, byteWithH);                                       \
+        else if (match_current("l"))                                           \
+            emit_byte(&tape, byteWithL);                                       \
+        else if (match_current("m"))                                           \
+            emit_byte(&tape, byteWithM);                                       \
+        else {                                                                 \
+            parser_log_error_expected_register(parser, a b c d e h l m);       \
         }                                                                      \
-                                                                               \
-        switch (parser->current_token->text[0]) {                              \
-        case 'a': emit_byte(&tape, byteWithA); break;                          \
-        case 'b': emit_byte(&tape, byteWithB); break;                          \
-        case 'c': emit_byte(&tape, byteWithC); break;                          \
-        case 'd': emit_byte(&tape, byteWithD); break;                          \
-        case 'e': emit_byte(&tape, byteWithE); break;                          \
-        case 'h': emit_byte(&tape, byteWithH); break;                          \
-        case 'l': emit_byte(&tape, byteWithL); break;                          \
-        case 'm': emit_byte(&tape, byteWithM); break;                          \
-                                                                               \
-        default: unreachable();                                                \
-        }                                                                      \
-    }
+    } while (0);
 
-                    case 'a':
+                else if (match_current("mov")) {
+                    parser_next_token(parser);
+                    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+                    if (match_current("a")) {
                         ins_mov_next_reg(0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c,
                                          0x7d, 0x7e);
-                        break;
-
-                    case 'b':
+                    } else if (match_current("b")) {
                         ins_mov_next_reg(0x47, 0x40, 0x41, 0x42, 0x43, 0x44,
                                          0x45, 0x46);
-                        break;
-
-                    case 'c':
+                    } else if (match_current("c")) {
                         ins_mov_next_reg(0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c,
                                          0x4d, 0x4e);
-                        break;
-
-                    case 'd':
+                    } else if (match_current("d")) {
                         ins_mov_next_reg(0x57, 0x50, 0x51, 0x52, 0x53, 0x54,
                                          0x55, 0x56);
-                        break;
-
-                    case 'e':
+                    } else if (match_current("e")) {
                         ins_mov_next_reg(0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c,
                                          0x5d, 0x5e);
-                        break;
-
-                    case 'h':
+                    } else if (match_current("h")) {
                         ins_mov_next_reg(0x67, 0x60, 0x61, 0x62, 0x63, 0x64,
                                          0x65, 0x66);
-                        break;
-
-                    case 'l':
+                    } else if (match_current("l")) {
                         ins_mov_next_reg(0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c,
                                          0x6d, 0x6e);
-                        break;
-
-                    case 'm': {
+                    } else if (match_current("m")) {
                         parser_expect_next(parser, TOKEN_COMMA);
-                        parser_next_token(parser);
+                        parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-                        if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                            unreachable(); // raise error
+                        if (match_current("a"))
+                            emit_byte(&tape, 0x77);
+                        else if (match_current("b"))
+                            emit_byte(&tape, 0x70);
+                        else if (match_current("c"))
+                            emit_byte(&tape, 0x71);
+                        else if (match_current("d"))
+                            emit_byte(&tape, 0x72);
+                        else if (match_current("e"))
+                            emit_byte(&tape, 0x73);
+                        else if (match_current("h"))
+                            emit_byte(&tape, 0x74);
+                        else if (match_current("l"))
+                            emit_byte(&tape, 0x75);
+                        else {
+                            parser_log_error(
+                                parser, parser->current_token, "Syntax Error",
+                                "Expected Register [a, b, c, d, e, h, l] "
+                                "instead got '%*.s'",
+                                parser->current_token->text_length,
+                                parser->current_token->text);
                         }
-
-                        switch (parser->current_token->text[0]) {
-                        case 'a': emit_byte(&tape, 0x77); break;
-                        case 'b': emit_byte(&tape, 0x70); break;
-                        case 'c': emit_byte(&tape, 0x71); break;
-                        case 'd': emit_byte(&tape, 0x72); break;
-                        case 'e': emit_byte(&tape, 0x73); break;
-                        case 'h': emit_byte(&tape, 0x74); break;
-                        case 'l': emit_byte(&tape, 0x75); break;
-
-                        default: unreachable();
-                        }
-                    }; break;
-
-                    default: unreachable();
                     }
+                } /* mov instruction end */
 #undef ins_mov_next_reg
-                }
 
-#define ins_with_one_register(insName, byteWithA, byteWithB, byteWithC,        \
-                              byteWithD, byteWithE, byteWithH, byteWithL,      \
-                              byteWithM)                                       \
-    if (are_cstrings_equal(insName, parser->current_token->text,               \
-                           parser->current_token->text_length)) {              \
-        parser_next_token(parser);                                             \
-                                                                               \
-        if (parser->current_token->kind != TOKEN_IDENTIFIER) {                 \
-            unreachable();                                                     \
-        }                                                                      \
-                                                                               \
-        switch (parser->current_token->text[0]) {                              \
-        case 'a': emit_byte(&tape, byteWithA); break;                          \
-        case 'b': emit_byte(&tape, byteWithB); break;                          \
-        case 'c': emit_byte(&tape, byteWithC); break;                          \
-        case 'd': emit_byte(&tape, byteWithD); break;                          \
-        case 'e': emit_byte(&tape, byteWithE); break;                          \
-        case 'h': emit_byte(&tape, byteWithH); break;                          \
-        case 'l': emit_byte(&tape, byteWithL); break;                          \
-        case 'm': emit_byte(&tape, byteWithM); break;                          \
-                                                                               \
-        default: unreachable();                                                \
-        }                                                                      \
-    }
-                ins_with_one_register("add", 0x87, 0x80, 0x81, 0x82, 0x83, 0x84,
-                                      0x85, 0x86);
-                ins_with_one_register("adc", 0x8f, 0x88, 0x89, 0x8a, 0x8b, 0x8c,
-                                      0x8d, 0x8e);
+                /* start: instructions with single register operand */
+                else if (match_current("add"))
+                    ins_with_one_register(&tape, parser, 0x87, 0x80, 0x81, 0x82,
+                                          0x83, 0x84, 0x85, 0x86);
+                else if (match_current("adc"))
+                    ins_with_one_register(&tape, parser, 0x8f, 0x88, 0x89, 0x8a,
+                                          0x8b, 0x8c, 0x8d, 0x8e);
+                else if (match_current("sub"))
+                    ins_with_one_register(&tape, parser, 0x87, 0x90, 0x91, 0x92,
+                                          0x93, 0x94, 0x95, 0x96);
+                else if (match_current("sbb"))
+                    ins_with_one_register(&tape, parser, 0x9f, 0x98, 0x99, 0x9a,
+                                          0x9b, 0x9c, 0x9d, 0x9e);
+                else if (match_current("ana"))
+                    ins_with_one_register(&tape, parser, 0xa7, 0xa0, 0xa1, 0xa2,
+                                          0xa3, 0xa4, 0xa5, 0xa6);
+                else if (match_current("xra"))
+                    ins_with_one_register(&tape, parser, 0xaf, 0xa8, 0xa9, 0xaa,
+                                          0xab, 0xac, 0xad, 0xae);
+                else if (match_current("ora"))
+                    ins_with_one_register(&tape, parser, 0xb7, 0xb0, 0xb1, 0xb2,
+                                          0xb3, 0xb4, 0xb5, 0xb6);
+                else if (match_current("cmp"))
+                    ins_with_one_register(&tape, parser, 0xbf, 0xb8, 0xb9, 0xba,
+                                          0xbb, 0xbc, 0xbd, 0xbe);
+                else if (match_current("inr"))
+                    ins_with_one_register(&tape, parser, 0x3c, 0x04, 0x0c, 0x14,
+                                          0x1c, 0x24, 0x2c, 0x34);
+                else if (match_current("dcr"))
+                    ins_with_one_register(&tape, parser, 0x3d, 0x05, 0x0d, 0x15,
+                                          0x1d, 0x25, 0x2d, 0x35);
 
-                ins_with_one_register("sub", 0x87, 0x90, 0x91, 0x92, 0x93, 0x94,
-                                      0x95, 0x96);
-                ins_with_one_register("sbb", 0x9f, 0x98, 0x99, 0x9a, 0x9b, 0x9c,
-                                      0x9d, 0x9e);
-                ins_with_one_register("ana", 0xa7, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4,
-                                      0xa5, 0xa6);
-                ins_with_one_register("xra", 0xaf, 0xa8, 0xa9, 0xaa, 0xab, 0xac,
-                                      0xad, 0xae);
-                ins_with_one_register("ora", 0xb7, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4,
-                                      0xb5, 0xb6);
-                ins_with_one_register("cmp", 0xbf, 0xb8, 0xb9, 0xba, 0xbb, 0xbc,
-                                      0xbd, 0xbe);
+                    /* end: instructions with single register operand */
 #undef ins_with_one_register
 
-                /* Increment instructions */
-                if (match_current("inr")) {
-                    parser_next_token(parser);
+                /* start: instruction with register pairs */
+                else if (match_current("inx"))
+                    ins_with_register_pair(&tape, parser, 0x03, 0x13, 0x23,
+                                           0x33);
+                else if (match_current("dcx"))
+                    ins_with_register_pair(&tape, parser, 0x0b, 0x1b, 0x2b,
+                                           0x3b);
+                else if (match_current("dad"))
+                    ins_with_register_pair(&tape, parser, 0x09, 0x19, 0x29,
+                                           0x39);
+                /* end: instruction with register pairs */
 
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable();
-                    }
-
-                    switch (parser->current_token->text[0]) {
-                    case 'b': emit_byte(&tape, 0x04); break; // INR B
-                    case 'c': emit_byte(&tape, 0x0c); break; // INR C
-                    case 'd': emit_byte(&tape, 0x14); break; // INR D
-                    case 'e': emit_byte(&tape, 0x1c); break; // INR E
-                    case 'h': emit_byte(&tape, 0x24); break; // INR H
-                    case 'l': emit_byte(&tape, 0x2c); break; // INR L
-                    case 'm': emit_byte(&tape, 0x34); break; // INR M
-                    case 'a': emit_byte(&tape, 0x3c); break; // INR A
-
-                    default: unreachable();
-                    }
-                }
-
-                if (match_current("dcr")) {
-                    parser_next_token(parser);
-
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable();
-                    }
-
-                    switch (parser->current_token->text[0]) {
-                    case 'b': emit_byte(&tape, 0x05); break; // DCR B
-                    case 'c': emit_byte(&tape, 0x0d); break; // DCR C
-                    case 'd': emit_byte(&tape, 0x15); break; // DCR D
-                    case 'e': emit_byte(&tape, 0x1d); break; // DCR E
-                    case 'h': emit_byte(&tape, 0x25); break; // DCR H
-                    case 'l': emit_byte(&tape, 0x2d); break; // DCR L
-                    case 'm': emit_byte(&tape, 0x35); break; // DCR M
-                    case 'a': emit_byte(&tape, 0x3d); break; // DCR A
-
-                    default: unreachable();
-                    }
-                }
-
-                if (match_current("inx")) {
-                    parser_next_token(parser);
-
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable();
-                    }
-
-                    switch (parser->current_token->text[0]) {
-                    case 'b': emit_byte(&tape, 0x03); break; // INX B
-                    case 'd': emit_byte(&tape, 0x13); break; // INX D
-                    case 'h': emit_byte(&tape, 0x23); break; // INX H
-                    }
-
-                    if (match_current("sp")) {
-                        emit_byte(&tape, 0x33);
-                    }
-
-                    unreachable();
-                }
-
-                if (match_current("dcx")) {
-                    parser_next_token(parser);
-
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable();
-                    }
-
-                    switch (parser->current_token->text[0]) {
-                    case 'b': emit_byte(&tape, 0x0b); break; // DCX B
-                    case 'd': emit_byte(&tape, 0x1b); break; // DCX D
-                    case 'h': emit_byte(&tape, 0x2b); break; // DCX H
-                    }
-
-                    if (match_current("sp")) {
-                        emit_byte(&tape, 0x3b);
-                    }
-
-                    unreachable();
-                }
-
-                if (match_current("dad")) {
-                    parser_next_token(parser);
-
-                    if (parser->current_token->kind != TOKEN_IDENTIFIER) {
-                        unreachable();
-                    }
-
-                    switch (parser->current_token->text[0]) {
-                    case 'b': emit_byte(&tape, 0x09); break; // DAD B
-                    case 'd': emit_byte(&tape, 0x19); break; // DAD D
-                    case 'h': emit_byte(&tape, 0x29); break; // DAD H
-                    }
-
-                    if (match_current("sp")) {
-                        emit_byte(&tape, 0x39);
-                    }
-
-                    unreachable();
-                }
-
-                /* rotation instructions */
-                if (match_current("rlc"))
+                /* start: rotation instructions */
+                else if (match_current("rlc"))
                     emit_byte(&tape, 0x07);
-                if (match_current("rrc"))
+                else if (match_current("rrc"))
                     emit_byte(&tape, 0x0f);
-                if (match_current("ral"))
+                else if (match_current("ral"))
                     emit_byte(&tape, 0x17);
-                if (match_current("rar"))
+                else if (match_current("rar"))
                     emit_byte(&tape, 0x1f);
+                /* end: rotation instructions */
 
-                if (match_current("cma"))
+                else if (match_current("cma")) /* cma instruction */
                     emit_byte(&tape, 0x2f);
-                if (match_current("cmc"))
+
+                /* start: carry instructions */
+                else if (match_current("cmc"))
                     emit_byte(&tape, 0x3f);
-                if (match_current("stc"))
+                else if (match_current("stc"))
                     emit_byte(&tape, 0x37);
+                /* end: carry instructions */
 
-                /* return instructions */
-                if (match_current("ret"))
+                /* start: return instructions */
+                else if (match_current("ret"))
                     emit_byte(&tape, 0xc9);
-                if (match_current("rz"))
+                else if (match_current("rz"))
                     emit_byte(&tape, 0xc8);
-                if (match_current("rnz"))
+                else if (match_current("rnz"))
                     emit_byte(&tape, 0xc0);
-                if (match_current("rc"))
+                else if (match_current("rc"))
                     emit_byte(&tape, 0xd8);
-                if (match_current("rnc"))
+                else if (match_current("rnc"))
                     emit_byte(&tape, 0xd0);
-                if (match_current("rpo"))
+                else if (match_current("rpo"))
                     emit_byte(&tape, 0xe0);
-                if (match_current("rpe"))
+                else if (match_current("rpe"))
                     emit_byte(&tape, 0xe8);
+                /* end: return instructions */
 
-                    /* Jump */
-#define ins_jump_variants(variant, byte)                                       \
-    if (match_current(variant)) {                                              \
-        parser_next_token(parser);                                             \
-        emit_byte(&tape, byte);                                                \
-                                                                               \
-        if (!is_token_number(parser->current_token->kind)) {                   \
-            unreachable();                                                     \
-        }                                                                      \
-                                                                               \
-        f64 num = number_token_to_f64(parser->current_token);                  \
-        emit_byte(&tape, cast(u8)((uint)num & 0xff));                          \
-        emit_byte(&tape, cast(u8)(((uint)num >> 8) & 0xff));                   \
-    }
-                ins_jump_variants("jmp", 0xc3);
-                ins_jump_variants("jc", 0xda);
-                ins_jump_variants("jnc", 0xd2);
-                ins_jump_variants("jz", 0xca);
-                ins_jump_variants("jpo", 0xe2);
-                ins_jump_variants("jpe", 0xea);
-                ins_jump_variants("jp", 0xf2);
-                ins_jump_variants("jm", 0xfa);
+                /* start: jump instructions */
+                else if (match_current("jmp"))
+                    ins_with_address(&tape, parser, 0xc3);
+                else if (match_current("jc"))
+                    ins_with_address(&tape, parser, 0xda);
+                else if (match_current("jnc"))
+                    ins_with_address(&tape, parser, 0xd2);
+                else if (match_current("jz"))
+                    ins_with_address(&tape, parser, 0xca);
+                else if (match_current("jpo"))
+                    ins_with_address(&tape, parser, 0xe2);
+                else if (match_current("jpe"))
+                    ins_with_address(&tape, parser, 0xea);
+                else if (match_current("jp"))
+                    ins_with_address(&tape, parser, 0xf2);
+                else if (match_current("jm"))
+                    ins_with_address(&tape, parser, 0xfa);
+                /* end: jump instructions */
 
-#define ins_call_variants(variant, byte) ins_jump_variants(variant, byte)
+                /* start: call instructions */
+                else if (match_current("call"))
+                    ins_with_address(&tape, parser, 0xcd);
+                else if (match_current("cc"))
+                    ins_with_address(&tape, parser, 0xdc);
+                else if (match_current("cnc"))
+                    ins_with_address(&tape, parser, 0xd4);
+                else if (match_current("cz"))
+                    ins_with_address(&tape, parser, 0xcc);
+                else if (match_current("cnz"))
+                    ins_with_address(&tape, parser, 0xc4);
+                else if (match_current("cpo"))
+                    ins_with_address(&tape, parser, 0xe4);
+                else if (match_current("cpe"))
+                    ins_with_address(&tape, parser, 0xec);
+                else if (match_current("cp"))
+                    ins_with_address(&tape, parser, 0xf4);
+                else if (match_current("cm"))
+                    ins_with_address(&tape, parser, 0xfc);
+                /* end: call instructions */
 
-                ins_call_variants("call", 0xcd);
-                ins_call_variants("cc", 0xdc);
-                ins_call_variants("cnc", 0xd4);
-                ins_call_variants("cz", 0xcc);
-                ins_call_variants("cnz", 0xc4);
-                ins_call_variants("cpo", 0xe4);
-                ins_call_variants("cpe", 0xec);
-                ins_call_variants("cp", 0xf4);
-                ins_call_variants("cm", 0xfc);
+                /* start: store/load instructions */
+                else if (match_current("shld")) /* shld */
+                    ins_with_address(&tape, parser, 0x22);
+                else if (match_current("lhld")) /* lhld */
+                    ins_with_address(&tape, parser, 0x28);
+                else if (match_current("sta")) /* sta */
+                    ins_with_address(&tape, parser, 0x32);
+                else if (match_current("lda")) /* lda */
+                    ins_with_address(&tape, parser, 0x3a);
+                else if (match_current("ldax")) /* ldax */
+                    ins_ldax(&tape, parser, 0x0a, 0x1a);
+                else if (match_current("lxi")) /* lxi */
+                    ins_lxi(&tape, parser, 0x01, 0x11, 0x21, 0x31);
+                /* end: store/load instructions */
 
-                /* shld */
-                if (match_current("shld")) {
-                    unreachable();
+                /* start: 1 byte instructions with 8-bit immediate data */
+                else if (match_current("adi")) /* adi */
+                    ins_with_imm_byte(&tape, parser, 0xc6);
+                else if (match_current("aci")) /* aci */
+                    ins_with_imm_byte(&tape, parser, 0xce);
+                else if (match_current("sui")) /* sui */
+                    ins_with_imm_byte(&tape, parser, 0xd6);
+                else if (match_current("sbi")) /* sbi */
+                    ins_with_imm_byte(&tape, parser, 0xde);
+                else if (match_current("ani")) /* ani */
+                    ins_with_imm_byte(&tape, parser, 0xe6);
+                else if (match_current("xri")) /* xri */
+                    ins_with_imm_byte(&tape, parser, 0xee);
+                else if (match_current("ori")) /* ori */
+                    ins_with_imm_byte(&tape, parser, 0xf6);
+                else if (match_current("cpi")) /* cpi */
+                    ins_with_imm_byte(&tape, parser, 0xfe);
+                else if (match_current("out")) /* out */
+                    ins_with_imm_byte(&tape, parser, 0x3a);
+                else if (match_current("in")) /* in */
+                    ins_with_imm_byte(&tape, parser, 0x3a);
+                /* end: 1 byte instructions with 8-bit immediate data */
+
+                /* start: mvi instruction */
+                else if (match_current("mvi")) {
+                    parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+                    if (match_current("a"))
+                        ins_mvi(&tape, parser, 0x3e);
+                    else if (match_current("b"))
+                        ins_mvi(&tape, parser, 0x06);
+                    else if (match_current("c"))
+                        ins_mvi(&tape, parser, 0x0e);
+                    else if (match_current("d"))
+                        ins_mvi(&tape, parser, 0x16);
+                    else if (match_current("e"))
+                        ins_mvi(&tape, parser, 0x1e);
+                    else if (match_current("h"))
+                        ins_mvi(&tape, parser, 0x26);
+                    else if (match_current("l"))
+                        ins_mvi(&tape, parser, 0x2e);
+                    else if (match_current("m"))
+                        ins_mvi(&tape, parser, 0x36);
+                    else {
+                        parser_log_error_expected_register(parser,
+                                                           a b c d e h l m);
+                    }
+                }
+                /* end: mvi instruction */
+
+                /* start: stack instruction */
+                else if (match_current("push"))
+                    ins_stack_ops(&tape, parser, 0xc5, 0xd5, 0xe5, 0xf5);
+                else if (match_current("pop"))
+                    ins_stack_ops(&tape, parser, 0xc1, 0xd1, 0xe1, 0xf1);
+                else if (match_current("pchl"))
+                    emit_byte(&tape, 0xe9);
+                else if (match_current("xthl"))
+                    emit_byte(&tape, 0xe3);
+                /* end: stack instruction */
+
+                /* start: RST instructions */
+                else if (match_current("rst"))
+                    ins_rst(&tape, parser, 0xc7, 0xcf, 0xd7, 0xdf, 0xe7, 0xef,
+                            0xf7, 0xff);
+                /* end: RST instructions */
+
+                /* start: Interrupt Enable/Disable instructions */
+                else if (match_current("ei"))
+                    emit_byte(&tape, 0xfb);
+                else if (match_current("di"))
+                    emit_byte(&tape, 0xf3);
+                /* end: Interrupt Enable/Disable instructions */
+
+                /* Last error */
+                else {
+                    parser_log_error(parser, parser->current_token, "Error",
+                                     "Unknown Instruction '%.*s' ",
+                                     parser->current_token->text_length,
+                                     parser->current_token->text);
                 }
             }
         }
 
         next = parser_peek_next(parser);
     }
+
+    /* set tape's error_count */
+    tape.error_count = parser->error_count;
 
     free_array(labels);
     free_parser(parser);

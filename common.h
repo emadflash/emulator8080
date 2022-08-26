@@ -13,6 +13,24 @@
 //                          - Basic -
 // --------------------------------------------------------------------------
 
+#define U8_MIN 0x0
+#define U8_MAX 0xff
+#define U16_MIN 0x0
+#define U16_MAX 0xffff
+#define U32_MIN 0x0
+#define U32_MAX 0xffffffff
+#define U64_MIN 0x0
+#define U64_MAX 0xffffffffffffffff
+
+#define I8_MIN (-0x7f - 0x1)
+#define I8_MAX 0x7f
+#define I16_MIN (-0x7fff - 0x1)
+#define I16_MAX 0x7fff
+#define I32_MIN (-0x7fffffff - 0x1)
+#define I32_MAX 0x7fffffff
+#define I64_MIN (-0x7fffffffffffffff - 0x1)
+#define I64_MAX 0x7fffffffffffffff
+
 typedef uint8_t u8;
 typedef int8_t i8;
 typedef uint16_t u16;
@@ -32,8 +50,6 @@ typedef size_t usize;
 typedef ptrdiff_t isize;
 
 #define cast(Type) (Type)
-#define unreachable() assert(false && "unreachable")
-#define todo() assert(false && "todo")
 #define swap(a, b, Type)                                                       \
     do {                                                                       \
         Type tmp = a;                                                          \
@@ -45,16 +61,87 @@ typedef ptrdiff_t isize;
 #define are_cstrings_equal(cstr, str, length) (strncmp(cstr, str, length) == 0)
 
 #define println(...)                                                           \
-    fprintf(stdout, __VA_ARGS__);                                              \
-    putc('\n', stdout);
+    do {                                                                       \
+        fprintf(stdout, __VA_ARGS__);                                          \
+        putc('\n', stdout);                                                    \
+    } while (0);
 #define eprintln(...)                                                          \
-    fprintf(stderr, __VA_ARGS__);                                              \
-    putc('\n', stderr);
+    do {                                                                       \
+        fprintf(stderr, __VA_ARGS__);                                          \
+        putc('\n', stderr);                                                    \
+    } while (0);
 
 void die(const char *fmt);
 void *xmalloc(usize size);
 void *xrealloc(void *ptr, usize size);
 char *file_to_string(char *filepath);
+
+// --------------------------------------------------------------------------
+//                          - Asserts -
+// --------------------------------------------------------------------------
+
+#ifndef DEBUG_TRAP
+#define DEBUG_TRAP() __builtin_trap()
+#endif
+
+#ifndef Assert
+#define Assert(cond)                                                           \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            report_assertion_failure("Assertion Failure", __FILE__, __LINE__,  \
+                                     __func__, #cond, NULL);                   \
+            DEBUG_TRAP();                                                      \
+        }                                                                      \
+    } while (0);
+#endif
+
+#ifndef Assert_Message
+#define Assert_Message(cond, message)                                          \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            report_assertion_failure("Debug Assert Failure", __FILE__,         \
+                                     __LINE__, __func__, #cond, message);      \
+            DEBUG_TRAP();                                                      \
+        }                                                                      \
+    } while (0);
+#endif
+
+#ifndef Debug_Assert
+#ifndef Debug
+#define Debug_Assert(cond)
+#else
+#define Debug_Assert(cond)                                                     \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            report_assertion_failure("Debug Assert Failure", __FILE__,         \
+                                     __LINE__, __func__, #cond, NULL);         \
+            DEBUG_TRAP();                                                      \
+        }                                                                      \
+    } while (0);
+#endif
+#endif
+
+#ifndef Unreachable
+#define Unreachable()                                                          \
+    do {                                                                       \
+        report_assertion_failure("Unreachable", __FILE__, __LINE__, __func__,  \
+                                 NULL, NULL);                                  \
+        DEBUG_TRAP();                                                          \
+    } while (0);
+#endif
+
+#ifndef Todo
+#define Todo()                                                                 \
+    do {                                                                       \
+        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL,   \
+                                 NULL);                                        \
+        DEBUG_TRAP();                                                          \
+    } while (0);
+#endif
+
+void report_assertion_failure(char *prefix, const char *filename,
+                              usize line_number, const char *function_name,
+                              char *cond, char *msg, ...);
 
 // --------------------------------------------------------------------------
 //                          - Character -

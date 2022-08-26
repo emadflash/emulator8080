@@ -1,4 +1,8 @@
-IndentWidth: 4
 BasedOnStyle: llvm
+
+IndentWidth: 4
 PointerAlignment: Right
+
+AllowShortIfStatementsOnASingleLine: true
+AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
