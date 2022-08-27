@@ -65,6 +65,8 @@ static TOKEN make_token(char *text, size_t text_length, TOKEN_Kind kind,
 }
 
 static f64 number_token_to_f64(TOKEN *token) {
+    Debug_Assert(is_token_number(token->kind));
+
     switch (token->kind) {
     case TOKEN_NUMBER_BINARY:
         return base2_to_f64(token->text + 2, token->text_length - 2);
@@ -395,7 +397,7 @@ static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
     if (n && n->kind == kind) {
         parser_next_token(p);
     } else {
-        parser_log_error(p, n, "Syntax Error", "Expected %s, got %s kind",
+        parser_log_error(p, n, "Syntax Error", "Expected %s kind, got %s",
                          token_kind_to_cstring[kind],
                          token_kind_to_cstring[n->kind]);
         parser_next_token(p);
@@ -423,6 +425,14 @@ static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
 //                          - Assemblar -
 // --------------------------------------------------------------------------
 
+typedef struct Assemblar Assemblar;
+struct Assemblar {
+    char *source_filepath;
+    String source_string;
+    Parser *parser;
+    Array(TOKEN) labels;
+};
+
 Tape make_tape() {
     Tape tape;
     memset(tape.bytecode, 0x0, 64 * 1024);
@@ -432,6 +442,25 @@ Tape make_tape() {
     return tape;
 }
 
+Assemblar *make_assemblar(char *source_filepath) {
+    Assemblar *as = xmalloc(sizeof(Assemblar));
+    as->source_filepath = source_filepath;
+    as->source_string = file_as_string(source_filepath);
+    as->parser = make_parser(source_filepath, &as->source_string);
+    init_array(as->labels);
+    return as;
+}
+
+void free_assemblar(Assemblar *as) {
+    free_string(as->source_string);
+    free_parser(as->parser);
+    free_array(as->labels);
+    free(as);
+}
+
+// --------------------------------------------------------------------------
+//                          - Emit bytes -
+// --------------------------------------------------------------------------
 static void emit_byte(Tape *tape, u8 byte) {
     tape->bytecode[tape->bytecode_count] = byte;
     tape->bytecode_count += 1;
@@ -631,23 +660,16 @@ static void ins_lxi(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
 }
 
 // --------------------------------------------------------------------------
-//                          - Emit bytes -
+//                - Initialize tape from source file -
 // --------------------------------------------------------------------------
-Tape as_emit_from_source(char *filepath, String *src) {
 #define match_current(cstring)                                                 \
-    are_cstrings_equal(cstring, parser->current_token->text,                   \
-                       parser->current_token->text_length)
+    are_cstrings_equal(cstring, as->parser->current_token->text,               \
+                       as->parser->current_token->text_length)
 
-    Tape tape;
-    Parser *parser;
-    TOKEN *next;
-    Array(TOKEN) labels;
-
-    tape = make_tape();
-    parser = make_parser(filepath, src);
-    next = parser_peek_next(parser);
-
-    init_array(labels);
+void assemblar_init_tape(char *source_filepath, Tape *tape) {
+    Assemblar *as = make_assemblar(source_filepath);
+    Parser *parser = as->parser;
+    TOKEN *next = parser_peek_next(parser);
 
     while (next && next->kind != TOKEN_END_OF_FILE) {
         parser_next_token(parser);
@@ -657,230 +679,225 @@ Tape as_emit_from_source(char *filepath, String *src) {
 
             /* label */
             if (next && next->kind == TOKEN_COLON) {
-                array_push(labels, *parser->current_token);
+                array_push(as->labels, *parser->current_token);
                 parser_next_token(parser);
             } else {
-                /* Instructions */
-
                 /* halt */
                 if (match_current("hlt")) {
-                    emit_byte(&tape, 0x76);
+                    emit_byte(tape, 0x76);
                 }
 
-                /* Mov instruction start */
-
+                /* start: Mov instruction */
                 else if (match_current("mov")) {
                     parser_next_token(parser);
                     parser_expect_next(parser, TOKEN_IDENTIFIER);
 
                     if (match_current("a")) {
-                        ins_mov_next_reg(&tape, parser, 0x7f, 0x78, 0x79, 0x7a,
+                        ins_mov_next_reg(tape, parser, 0x7f, 0x78, 0x79, 0x7a,
                                          0x7b, 0x7c, 0x7d, 0x7e);
                     } else if (match_current("b")) {
 
-                        ins_mov_next_reg(&tape, parser, 0x47, 0x40, 0x41, 0x42,
+                        ins_mov_next_reg(tape, parser, 0x47, 0x40, 0x41, 0x42,
                                          0x43, 0x44, 0x45, 0x46);
                     } else if (match_current("c")) {
-                        ins_mov_next_reg(&tape, parser, 0x4f, 0x48, 0x49, 0x4a,
+                        ins_mov_next_reg(tape, parser, 0x4f, 0x48, 0x49, 0x4a,
                                          0x4b, 0x4c, 0x4d, 0x4e);
                     } else if (match_current("d")) {
-                        ins_mov_next_reg(&tape, parser, 0x57, 0x50, 0x51, 0x52,
+                        ins_mov_next_reg(tape, parser, 0x57, 0x50, 0x51, 0x52,
                                          0x53, 0x54, 0x55, 0x56);
                     } else if (match_current("e")) {
-                        ins_mov_next_reg(&tape, parser, 0x5f, 0x58, 0x59, 0x5a,
+                        ins_mov_next_reg(tape, parser, 0x5f, 0x58, 0x59, 0x5a,
                                          0x5b, 0x5c, 0x5d, 0x5e);
                     } else if (match_current("h")) {
-                        ins_mov_next_reg(&tape, parser, 0x67, 0x60, 0x61, 0x62,
+                        ins_mov_next_reg(tape, parser, 0x67, 0x60, 0x61, 0x62,
                                          0x63, 0x64, 0x65, 0x66);
                     } else if (match_current("l")) {
-                        ins_mov_next_reg(&tape, parser, 0x6f, 0x68, 0x69, 0x6a,
+                        ins_mov_next_reg(tape, parser, 0x6f, 0x68, 0x69, 0x6a,
                                          0x6b, 0x6c, 0x6d, 0x6e);
                     } else if (match_current("m")) {
                         parser_expect_next(parser, TOKEN_COMMA);
                         parser_expect_next(parser, TOKEN_IDENTIFIER);
 
                         if (match_current("a"))
-                            emit_byte(&tape, 0x77);
+                            emit_byte(tape, 0x77);
                         else if (match_current("b"))
-                            emit_byte(&tape, 0x70);
+                            emit_byte(tape, 0x70);
                         else if (match_current("c"))
-                            emit_byte(&tape, 0x71);
+                            emit_byte(tape, 0x71);
                         else if (match_current("d"))
-                            emit_byte(&tape, 0x72);
+                            emit_byte(tape, 0x72);
                         else if (match_current("e"))
-                            emit_byte(&tape, 0x73);
+                            emit_byte(tape, 0x73);
                         else if (match_current("h"))
-                            emit_byte(&tape, 0x74);
+                            emit_byte(tape, 0x74);
                         else if (match_current("l"))
-                            emit_byte(&tape, 0x75);
+                            emit_byte(tape, 0x75);
                         else
                             parser_log_error_expected_register(parser,
                                                                a b c d e h l);
                     }
-                } /* mov instruction end */
-#undef ins_mov_next_reg
+                }
+                /* end: Mov instruction */
 
                 /* start: instructions with single register operand */
                 else if (match_current("add"))
-                    ins_with_one_register(&tape, parser, 0x87, 0x80, 0x81, 0x82,
+                    ins_with_one_register(tape, parser, 0x87, 0x80, 0x81, 0x82,
                                           0x83, 0x84, 0x85, 0x86);
                 else if (match_current("adc"))
-                    ins_with_one_register(&tape, parser, 0x8f, 0x88, 0x89, 0x8a,
+                    ins_with_one_register(tape, parser, 0x8f, 0x88, 0x89, 0x8a,
                                           0x8b, 0x8c, 0x8d, 0x8e);
                 else if (match_current("sub"))
-                    ins_with_one_register(&tape, parser, 0x87, 0x90, 0x91, 0x92,
+                    ins_with_one_register(tape, parser, 0x87, 0x90, 0x91, 0x92,
                                           0x93, 0x94, 0x95, 0x96);
                 else if (match_current("sbb"))
-                    ins_with_one_register(&tape, parser, 0x9f, 0x98, 0x99, 0x9a,
+                    ins_with_one_register(tape, parser, 0x9f, 0x98, 0x99, 0x9a,
                                           0x9b, 0x9c, 0x9d, 0x9e);
                 else if (match_current("ana"))
-                    ins_with_one_register(&tape, parser, 0xa7, 0xa0, 0xa1, 0xa2,
+                    ins_with_one_register(tape, parser, 0xa7, 0xa0, 0xa1, 0xa2,
                                           0xa3, 0xa4, 0xa5, 0xa6);
                 else if (match_current("xra"))
-                    ins_with_one_register(&tape, parser, 0xaf, 0xa8, 0xa9, 0xaa,
+                    ins_with_one_register(tape, parser, 0xaf, 0xa8, 0xa9, 0xaa,
                                           0xab, 0xac, 0xad, 0xae);
                 else if (match_current("ora"))
-                    ins_with_one_register(&tape, parser, 0xb7, 0xb0, 0xb1, 0xb2,
+                    ins_with_one_register(tape, parser, 0xb7, 0xb0, 0xb1, 0xb2,
                                           0xb3, 0xb4, 0xb5, 0xb6);
                 else if (match_current("cmp"))
-                    ins_with_one_register(&tape, parser, 0xbf, 0xb8, 0xb9, 0xba,
+                    ins_with_one_register(tape, parser, 0xbf, 0xb8, 0xb9, 0xba,
                                           0xbb, 0xbc, 0xbd, 0xbe);
                 else if (match_current("inr"))
-                    ins_with_one_register(&tape, parser, 0x3c, 0x04, 0x0c, 0x14,
+                    ins_with_one_register(tape, parser, 0x3c, 0x04, 0x0c, 0x14,
                                           0x1c, 0x24, 0x2c, 0x34);
                 else if (match_current("dcr"))
-                    ins_with_one_register(&tape, parser, 0x3d, 0x05, 0x0d, 0x15,
+                    ins_with_one_register(tape, parser, 0x3d, 0x05, 0x0d, 0x15,
                                           0x1d, 0x25, 0x2d, 0x35);
-
-                    /* end: instructions with single register operand */
-#undef ins_with_one_register
+                /* end: instructions with single register operand */
 
                 /* start: instruction with register pairs */
                 else if (match_current("inx"))
-                    ins_with_register_pair(&tape, parser, 0x03, 0x13, 0x23,
+                    ins_with_register_pair(tape, parser, 0x03, 0x13, 0x23,
                                            0x33);
                 else if (match_current("dcx"))
-                    ins_with_register_pair(&tape, parser, 0x0b, 0x1b, 0x2b,
+                    ins_with_register_pair(tape, parser, 0x0b, 0x1b, 0x2b,
                                            0x3b);
                 else if (match_current("dad"))
-                    ins_with_register_pair(&tape, parser, 0x09, 0x19, 0x29,
+                    ins_with_register_pair(tape, parser, 0x09, 0x19, 0x29,
                                            0x39);
                 /* end: instruction with register pairs */
 
                 /* start: rotation instructions */
                 else if (match_current("rlc"))
-                    emit_byte(&tape, 0x07);
+                    emit_byte(tape, 0x07);
                 else if (match_current("rrc"))
-                    emit_byte(&tape, 0x0f);
+                    emit_byte(tape, 0x0f);
                 else if (match_current("ral"))
-                    emit_byte(&tape, 0x17);
+                    emit_byte(tape, 0x17);
                 else if (match_current("rar"))
-                    emit_byte(&tape, 0x1f);
+                    emit_byte(tape, 0x1f);
                 /* end: rotation instructions */
 
                 else if (match_current("cma")) /* cma instruction */
-                    emit_byte(&tape, 0x2f);
+                    emit_byte(tape, 0x2f);
 
                 /* start: carry instructions */
                 else if (match_current("cmc"))
-                    emit_byte(&tape, 0x3f);
+                    emit_byte(tape, 0x3f);
                 else if (match_current("stc"))
-                    emit_byte(&tape, 0x37);
+                    emit_byte(tape, 0x37);
                 /* end: carry instructions */
 
                 /* start: return instructions */
                 else if (match_current("ret"))
-                    emit_byte(&tape, 0xc9);
+                    emit_byte(tape, 0xc9);
                 else if (match_current("rz"))
-                    emit_byte(&tape, 0xc8);
+                    emit_byte(tape, 0xc8);
                 else if (match_current("rnz"))
-                    emit_byte(&tape, 0xc0);
+                    emit_byte(tape, 0xc0);
                 else if (match_current("rc"))
-                    emit_byte(&tape, 0xd8);
+                    emit_byte(tape, 0xd8);
                 else if (match_current("rnc"))
-                    emit_byte(&tape, 0xd0);
+                    emit_byte(tape, 0xd0);
                 else if (match_current("rpo"))
-                    emit_byte(&tape, 0xe0);
+                    emit_byte(tape, 0xe0);
                 else if (match_current("rpe"))
-                    emit_byte(&tape, 0xe8);
+                    emit_byte(tape, 0xe8);
                 /* end: return instructions */
 
                 /* start: jump instructions */
                 else if (match_current("jmp"))
-                    ins_with_address(&tape, parser, 0xc3);
+                    ins_with_address(tape, parser, 0xc3);
                 else if (match_current("jc"))
-                    ins_with_address(&tape, parser, 0xda);
+                    ins_with_address(tape, parser, 0xda);
                 else if (match_current("jnc"))
-                    ins_with_address(&tape, parser, 0xd2);
+                    ins_with_address(tape, parser, 0xd2);
                 else if (match_current("jz"))
-                    ins_with_address(&tape, parser, 0xca);
+                    ins_with_address(tape, parser, 0xca);
                 else if (match_current("jpo"))
-                    ins_with_address(&tape, parser, 0xe2);
+                    ins_with_address(tape, parser, 0xe2);
                 else if (match_current("jpe"))
-                    ins_with_address(&tape, parser, 0xea);
+                    ins_with_address(tape, parser, 0xea);
                 else if (match_current("jp"))
-                    ins_with_address(&tape, parser, 0xf2);
+                    ins_with_address(tape, parser, 0xf2);
                 else if (match_current("jm"))
-                    ins_with_address(&tape, parser, 0xfa);
+                    ins_with_address(tape, parser, 0xfa);
                 /* end: jump instructions */
 
                 /* start: call instructions */
                 else if (match_current("call"))
-                    ins_with_address(&tape, parser, 0xcd);
+                    ins_with_address(tape, parser, 0xcd);
                 else if (match_current("cc"))
-                    ins_with_address(&tape, parser, 0xdc);
+                    ins_with_address(tape, parser, 0xdc);
                 else if (match_current("cnc"))
-                    ins_with_address(&tape, parser, 0xd4);
+                    ins_with_address(tape, parser, 0xd4);
                 else if (match_current("cz"))
-                    ins_with_address(&tape, parser, 0xcc);
+                    ins_with_address(tape, parser, 0xcc);
                 else if (match_current("cnz"))
-                    ins_with_address(&tape, parser, 0xc4);
+                    ins_with_address(tape, parser, 0xc4);
                 else if (match_current("cpo"))
-                    ins_with_address(&tape, parser, 0xe4);
+                    ins_with_address(tape, parser, 0xe4);
                 else if (match_current("cpe"))
-                    ins_with_address(&tape, parser, 0xec);
+                    ins_with_address(tape, parser, 0xec);
                 else if (match_current("cp"))
-                    ins_with_address(&tape, parser, 0xf4);
+                    ins_with_address(tape, parser, 0xf4);
                 else if (match_current("cm"))
-                    ins_with_address(&tape, parser, 0xfc);
+                    ins_with_address(tape, parser, 0xfc);
                 /* end: call instructions */
 
                 /* start: store/load instructions */
                 else if (match_current("shld")) /* shld */
-                    ins_with_address(&tape, parser, 0x22);
+                    ins_with_address(tape, parser, 0x22);
                 else if (match_current("lhld")) /* lhld */
-                    ins_with_address(&tape, parser, 0x28);
+                    ins_with_address(tape, parser, 0x28);
                 else if (match_current("sta")) /* sta */
-                    ins_with_address(&tape, parser, 0x32);
+                    ins_with_address(tape, parser, 0x32);
                 else if (match_current("lda")) /* lda */
-                    ins_with_address(&tape, parser, 0x3a);
+                    ins_with_address(tape, parser, 0x3a);
                 else if (match_current("ldax")) /* ldax */
-                    ins_ldax(&tape, parser, 0x0a, 0x1a);
+                    ins_ldax(tape, parser, 0x0a, 0x1a);
                 else if (match_current("lxi")) /* lxi */
-                    ins_lxi(&tape, parser, 0x01, 0x11, 0x21, 0x31);
+                    ins_lxi(tape, parser, 0x01, 0x11, 0x21, 0x31);
                 /* end: store/load instructions */
 
                 /* start: 1 byte instructions with 8-bit immediate data */
                 else if (match_current("adi")) /* adi */
-                    ins_with_imm_byte(&tape, parser, 0xc6);
+                    ins_with_imm_byte(tape, parser, 0xc6);
                 else if (match_current("aci")) /* aci */
-                    ins_with_imm_byte(&tape, parser, 0xce);
+                    ins_with_imm_byte(tape, parser, 0xce);
                 else if (match_current("sui")) /* sui */
-                    ins_with_imm_byte(&tape, parser, 0xd6);
+                    ins_with_imm_byte(tape, parser, 0xd6);
                 else if (match_current("sbi")) /* sbi */
-                    ins_with_imm_byte(&tape, parser, 0xde);
+                    ins_with_imm_byte(tape, parser, 0xde);
                 else if (match_current("ani")) /* ani */
-                    ins_with_imm_byte(&tape, parser, 0xe6);
+                    ins_with_imm_byte(tape, parser, 0xe6);
                 else if (match_current("xri")) /* xri */
-                    ins_with_imm_byte(&tape, parser, 0xee);
+                    ins_with_imm_byte(tape, parser, 0xee);
                 else if (match_current("ori")) /* ori */
-                    ins_with_imm_byte(&tape, parser, 0xf6);
+                    ins_with_imm_byte(tape, parser, 0xf6);
                 else if (match_current("cpi")) /* cpi */
-                    ins_with_imm_byte(&tape, parser, 0xfe);
+                    ins_with_imm_byte(tape, parser, 0xfe);
                 else if (match_current("out")) /* out */
-                    ins_with_imm_byte(&tape, parser, 0x3a);
+                    ins_with_imm_byte(tape, parser, 0x3a);
                 else if (match_current("in")) /* in */
-                    ins_with_imm_byte(&tape, parser, 0x3a);
+                    ins_with_imm_byte(tape, parser, 0x3a);
                 /* end: 1 byte instructions with 8-bit immediate data */
 
                 /* start: mvi instruction */
@@ -888,21 +905,21 @@ Tape as_emit_from_source(char *filepath, String *src) {
                     parser_expect_next(parser, TOKEN_IDENTIFIER);
 
                     if (match_current("a"))
-                        ins_mvi(&tape, parser, 0x3e);
+                        ins_mvi(tape, parser, 0x3e);
                     else if (match_current("b"))
-                        ins_mvi(&tape, parser, 0x06);
+                        ins_mvi(tape, parser, 0x06);
                     else if (match_current("c"))
-                        ins_mvi(&tape, parser, 0x0e);
+                        ins_mvi(tape, parser, 0x0e);
                     else if (match_current("d"))
-                        ins_mvi(&tape, parser, 0x16);
+                        ins_mvi(tape, parser, 0x16);
                     else if (match_current("e"))
-                        ins_mvi(&tape, parser, 0x1e);
+                        ins_mvi(tape, parser, 0x1e);
                     else if (match_current("h"))
-                        ins_mvi(&tape, parser, 0x26);
+                        ins_mvi(tape, parser, 0x26);
                     else if (match_current("l"))
-                        ins_mvi(&tape, parser, 0x2e);
+                        ins_mvi(tape, parser, 0x2e);
                     else if (match_current("m"))
-                        ins_mvi(&tape, parser, 0x36);
+                        ins_mvi(tape, parser, 0x36);
                     else {
                         parser_log_error_expected_register(parser,
                                                            a b c d e h l m);
@@ -912,26 +929,26 @@ Tape as_emit_from_source(char *filepath, String *src) {
 
                 /* start: stack instruction */
                 else if (match_current("push"))
-                    ins_stack_ops(&tape, parser, 0xc5, 0xd5, 0xe5, 0xf5);
+                    ins_stack_ops(tape, parser, 0xc5, 0xd5, 0xe5, 0xf5);
                 else if (match_current("pop"))
-                    ins_stack_ops(&tape, parser, 0xc1, 0xd1, 0xe1, 0xf1);
+                    ins_stack_ops(tape, parser, 0xc1, 0xd1, 0xe1, 0xf1);
                 else if (match_current("pchl"))
-                    emit_byte(&tape, 0xe9);
+                    emit_byte(tape, 0xe9);
                 else if (match_current("xthl"))
-                    emit_byte(&tape, 0xe3);
+                    emit_byte(tape, 0xe3);
                 /* end: stack instruction */
 
                 /* start: RST instructions */
                 else if (match_current("rst"))
-                    ins_rst(&tape, parser, 0xc7, 0xcf, 0xd7, 0xdf, 0xe7, 0xef,
+                    ins_rst(tape, parser, 0xc7, 0xcf, 0xd7, 0xdf, 0xe7, 0xef,
                             0xf7, 0xff);
                 /* end: RST instructions */
 
                 /* start: Interrupt Enable/Disable instructions */
                 else if (match_current("ei"))
-                    emit_byte(&tape, 0xfb);
+                    emit_byte(tape, 0xfb);
                 else if (match_current("di"))
-                    emit_byte(&tape, 0xf3);
+                    emit_byte(tape, 0xf3);
                 /* end: Interrupt Enable/Disable instructions */
 
                 /* Last error */
@@ -947,10 +964,6 @@ Tape as_emit_from_source(char *filepath, String *src) {
         next = parser_peek_next(parser);
     }
 
-    /* set tape's error_count */
-    tape.error_count = parser->error_count;
-
-    free_array(labels);
-    free_parser(parser);
-    return tape;
+    tape->error_count = parser->error_count; /* set tape's error_count */
+    free_assemblar(as);
 }

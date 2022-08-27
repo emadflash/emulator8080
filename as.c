@@ -16,7 +16,9 @@ int main(int argc, char **argv) {
         exit(1);
     }
 
-    tape = as_emit_from_source(argv[1], &source);
+    tape = make_tape();
+    assemblar_init_tape(argv[1], &tape);
+
     for (u16 i = 0; i < tape.bytecode_count; ++i) {
         println("0x%x", tape.bytecode[i]);
     }
