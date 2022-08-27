@@ -1,5 +1,7 @@
 #include "common.h"
 
+static const char *EOF_string = "EOF";
+
 typedef struct Tape Tape;
 struct Tape {
     u16 origin;             /* starting/origin address of program */
@@ -9,4 +11,4 @@ struct Tape {
     int error_count;
 };
 
-Tape as_emit_from_source(char *filepath, char *src);
+Tape as_emit_from_source(char *filepath, String *src);

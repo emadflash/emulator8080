@@ -248,12 +248,18 @@ static TOKEN scan_punctuation(Lexer *l) {
     return make_token(save, l->curr - save + 1, kind, pos, l->line_start);
 }
 
-static Lexer *make_lexer(char *src_cstr) {
+static Lexer *make_lexer(String *source_string) {
     Lexer *l = xmalloc(sizeof(Lexer));
     l->exhausted = false;
-    l->src = src_cstr;
+
+    // NOTE(madflash) - Append EOF so that we can print it ....
+    usize previous_length = string_length(*source_string);
+    *source_string = append_cstring(*source_string, " EOF");
+
+    l->src = *source_string;
     l->curr = l->src - 1;
-    l->end = l->src + strlen(l->src);
+    l->end = l->src + previous_length;
+
     l->row = 0;
     l->col = -1;
     l->current_char = -1;
@@ -290,10 +296,12 @@ static TOKEN lexer_next_token(Lexer *l) {
         return scan_punctuation(l);
     }
 
-    l->curr = l->end;
+    // HACK(madflash) - Hide EOF whlie printing line, so add '\0' before EOF
+    *l->end = '\0';
+    l->curr = l->end + 1;
     l->col += 1;
     l->exhausted = true;
-    return make_token(l->curr, 0, TOKEN_END_OF_FILE, current_pos(l),
+    return make_token(l->curr, 3, TOKEN_END_OF_FILE, current_pos(l),
                       l->line_start);
 }
 
@@ -337,8 +345,8 @@ static TOKEN *parser_peek_next(Parser *p) {
     return &p->tokens[p->current_token_idx + 1];
 }
 
-static Parser *make_parser(char *filepath, char *src) {
-    Parser *parser = (Parser *)xmalloc(sizeof(Parser));
+static Parser *make_parser(char *filepath, String *src) {
+    Parser *parser = xmalloc(sizeof(Parser));
     Lexer *lexer = make_lexer(src);
 
     parser->filepath = filepath;
@@ -355,6 +363,9 @@ static void free_parser(Parser *p) {
     free(p);
 }
 
+// --------------------------------------------------------------------------
+//                          - Error Printing -
+// --------------------------------------------------------------------------
 static void parser_log_error(Parser *p, TOKEN *faulty_token, char *prefix,
                              char *msg, ...) {
     va_list ap;
@@ -426,6 +437,14 @@ static void emit_byte(Tape *tape, u8 byte) {
     tape->bytecode_count += 1;
 }
 
+#define ins_mov_next_reg(tape, parser, byteA, byteB, byteC, byteD, byteE,      \
+                         byteH, byteL, byteM)                                  \
+    do {                                                                       \
+        parser_expect_next(parser, TOKEN_COMMA);                               \
+        ins_with_one_register(tape, parser, byteA, byteB, byteC, byteD, byteE, \
+                              byteH, byteL, byteM);                            \
+    } while (0)
+
 static void ins_with_one_register(Tape *tape, Parser *parser, u8 byteWithA,
                                   u8 byteB, u8 byteC, u8 byteD, u8 byteE,
                                   u8 byteH, u8 byteL, u8 byteM) {
@@ -475,7 +494,7 @@ static void ins_with_address(Tape *tape, Parser *parser, u8 emitByte) {
     if (!is_token_number(parser->current_token->kind)) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected address, "
-                         "instead got '%*.s'",
+                         "instead got '%.*s'",
                          parser->current_token->text_length,
                          parser->current_token->text);
     } else {
@@ -598,7 +617,7 @@ static void ins_lxi(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
     if (!is_token_number(parser->current_token->kind)) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected address, "
-                         "instead got '%*.s'",
+                         "instead got '%.*s'",
                          parser->current_token->text_length,
                          parser->current_token->text);
     } else {
@@ -614,7 +633,7 @@ static void ins_lxi(Tape *tape, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
 // --------------------------------------------------------------------------
 //                          - Emit bytes -
 // --------------------------------------------------------------------------
-Tape as_emit_from_source(char *filepath, char *src) {
+Tape as_emit_from_source(char *filepath, String *src) {
 #define match_current(cstring)                                                 \
     are_cstrings_equal(cstring, parser->current_token->text,                   \
                        parser->current_token->text_length)
@@ -649,58 +668,33 @@ Tape as_emit_from_source(char *filepath, char *src) {
                 }
 
                 /* Mov instruction start */
-#define ins_mov_next_reg(byteWithA, byteWithB, byteWithC, byteWithD,           \
-                         byteWithE, byteWithH, byteWithL, byteWithM)           \
-    do {                                                                       \
-        parser_expect_next(parser, TOKEN_COMMA);                               \
-        parser_expect_next(parser, TOKEN_IDENTIFIER);                          \
-                                                                               \
-        if (match_current("a"))                                                \
-            emit_byte(&tape, byteWithA);                                       \
-        else if (match_current("b"))                                           \
-            emit_byte(&tape, byteWithB);                                       \
-        else if (match_current("c"))                                           \
-            emit_byte(&tape, byteWithC);                                       \
-        else if (match_current("d"))                                           \
-            emit_byte(&tape, byteWithD);                                       \
-        else if (match_current("e"))                                           \
-            emit_byte(&tape, byteWithE);                                       \
-        else if (match_current("h"))                                           \
-            emit_byte(&tape, byteWithH);                                       \
-        else if (match_current("l"))                                           \
-            emit_byte(&tape, byteWithL);                                       \
-        else if (match_current("m"))                                           \
-            emit_byte(&tape, byteWithM);                                       \
-        else {                                                                 \
-            parser_log_error_expected_register(parser, a b c d e h l m);       \
-        }                                                                      \
-    } while (0);
 
                 else if (match_current("mov")) {
                     parser_next_token(parser);
                     parser_expect_next(parser, TOKEN_IDENTIFIER);
 
                     if (match_current("a")) {
-                        ins_mov_next_reg(0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c,
-                                         0x7d, 0x7e);
+                        ins_mov_next_reg(&tape, parser, 0x7f, 0x78, 0x79, 0x7a,
+                                         0x7b, 0x7c, 0x7d, 0x7e);
                     } else if (match_current("b")) {
-                        ins_mov_next_reg(0x47, 0x40, 0x41, 0x42, 0x43, 0x44,
-                                         0x45, 0x46);
+
+                        ins_mov_next_reg(&tape, parser, 0x47, 0x40, 0x41, 0x42,
+                                         0x43, 0x44, 0x45, 0x46);
                     } else if (match_current("c")) {
-                        ins_mov_next_reg(0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c,
-                                         0x4d, 0x4e);
+                        ins_mov_next_reg(&tape, parser, 0x4f, 0x48, 0x49, 0x4a,
+                                         0x4b, 0x4c, 0x4d, 0x4e);
                     } else if (match_current("d")) {
-                        ins_mov_next_reg(0x57, 0x50, 0x51, 0x52, 0x53, 0x54,
-                                         0x55, 0x56);
+                        ins_mov_next_reg(&tape, parser, 0x57, 0x50, 0x51, 0x52,
+                                         0x53, 0x54, 0x55, 0x56);
                     } else if (match_current("e")) {
-                        ins_mov_next_reg(0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c,
-                                         0x5d, 0x5e);
+                        ins_mov_next_reg(&tape, parser, 0x5f, 0x58, 0x59, 0x5a,
+                                         0x5b, 0x5c, 0x5d, 0x5e);
                     } else if (match_current("h")) {
-                        ins_mov_next_reg(0x67, 0x60, 0x61, 0x62, 0x63, 0x64,
-                                         0x65, 0x66);
+                        ins_mov_next_reg(&tape, parser, 0x67, 0x60, 0x61, 0x62,
+                                         0x63, 0x64, 0x65, 0x66);
                     } else if (match_current("l")) {
-                        ins_mov_next_reg(0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c,
-                                         0x6d, 0x6e);
+                        ins_mov_next_reg(&tape, parser, 0x6f, 0x68, 0x69, 0x6a,
+                                         0x6b, 0x6c, 0x6d, 0x6e);
                     } else if (match_current("m")) {
                         parser_expect_next(parser, TOKEN_COMMA);
                         parser_expect_next(parser, TOKEN_IDENTIFIER);
@@ -719,14 +713,9 @@ Tape as_emit_from_source(char *filepath, char *src) {
                             emit_byte(&tape, 0x74);
                         else if (match_current("l"))
                             emit_byte(&tape, 0x75);
-                        else {
-                            parser_log_error(
-                                parser, parser->current_token, "Syntax Error",
-                                "Expected Register [a, b, c, d, e, h, l] "
-                                "instead got '%*.s'",
-                                parser->current_token->text_length,
-                                parser->current_token->text);
-                        }
+                        else
+                            parser_log_error_expected_register(parser,
+                                                               a b c d e h l);
                     }
                 } /* mov instruction end */
 #undef ins_mov_next_reg

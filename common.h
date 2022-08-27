@@ -74,7 +74,6 @@ typedef ptrdiff_t isize;
 void die(const char *fmt);
 void *xmalloc(usize size);
 void *xrealloc(void *ptr, usize size);
-char *file_to_string(char *filepath);
 
 // --------------------------------------------------------------------------
 //                          - Asserts -
@@ -261,7 +260,8 @@ typedef char *String;
 #define string_length(s) (STRING_HEADER(s)->length)
 #define string_capacity(s) (STRING_HEADER(s)->capacity)
 #define string_for_each(s, i) for (usize i = 0; i < string_length(s); ++i)
-#define append_string(s, str) append_string_length(s, str, strlen(str))
+#define append_string(s, str) append_string_length(s, str, string_length(s))
+#define append_cstring(s, cstr) append_string_length(s, cstr, strlen(cstr))
 
 typedef struct StringHeader StringHeader;
 struct StringHeader {
@@ -275,5 +275,6 @@ String make_string(char *str, usize len);
 String append_string_length(String s, char *str, usize len);
 bool are_equal_strings(String lhs, String rhs);
 bool are_equal_cstring(String lhs, char *rhs);
+String file_as_string(char *filepath);
 
 #endif

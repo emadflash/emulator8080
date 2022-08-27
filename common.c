@@ -12,38 +12,14 @@ void die(const char *fmt) {
 
 void *xmalloc(usize size) {
     void *ptr = malloc(size);
-    if (!ptr)
-        die("malloc");
+    if (!ptr) die("malloc");
     return ptr;
 }
 
 void *xrealloc(void *ptr, usize size) {
     void *_ptr = realloc(ptr, size);
-    if (!_ptr)
-        die("realloc");
+    if (!_ptr) die("realloc");
     return _ptr;
-}
-
-char *file_to_string(char *filepath) {
-    FILE *f;
-    char *content;
-    u32 content_size;
-
-    f = fopen(filepath, "r");
-    if (!f) {
-        return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    content_size = ftell(f);
-    rewind(f);
-
-    content = (char *)xmalloc(content_size + 1);
-    fread(content, 1, content_size, f);
-    content[content_size] = '\0';
-
-    fclose(f);
-    return content;
 }
 
 // --------------------------------------------------------------------------
@@ -160,7 +136,7 @@ String append_string_length(String s, char *str, usize len) {
     if (rem < len) {
         StringHeader *h = STRING_HEADER(s);
         cap = h->capacity + len + (1 << 6);
-        h = (StringHeader *)realloc(h, sizeof(StringHeader) + cap + 1);
+        h = (StringHeader *)xrealloc(h, sizeof(StringHeader) + cap + 1);
         h->capacity = cap;
         s = (String)(h + 1);
     }
@@ -173,21 +149,40 @@ String append_string_length(String s, char *str, usize len) {
 }
 
 bool are_equal_strings(String lhs, String rhs) {
-    if (string_length(lhs) != string_length(rhs))
-        return false;
+    if (string_length(lhs) != string_length(rhs)) return false;
     string_for_each(lhs, i) {
-        if (lhs[i] != rhs[i])
-            return false;
+        if (lhs[i] != rhs[i]) return false;
     }
     return true;
 }
 
 bool are_equal_cstring(String lhs, char *rhs) {
-    if (string_length(lhs) != strlen(rhs))
-        return false;
+    if (string_length(lhs) != strlen(rhs)) return false;
     string_for_each(lhs, i) {
-        if (lhs[i] != rhs[i])
-            return false;
+        if (lhs[i] != rhs[i]) return false;
     }
     return true;
+}
+
+String file_as_string(char *filepath) {
+    FILE *f;
+    String content;
+    u32 content_size;
+
+    f = fopen(filepath, "r");
+    if (!f) {
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    content_size = ftell(f);
+    rewind(f);
+
+    content = string_reserve(content_size);
+    fread(content, 1, content_size, f);
+    content[content_size] = '\0';
+    string_length(content) = content_size;
+
+    fclose(f);
+    return content;
 }
