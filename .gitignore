@@ -5,3 +5,8 @@ emulator
 i8080
 *.o
 as
+emulator8080
+log
+ins
+test.asm
+arg_parser.c
