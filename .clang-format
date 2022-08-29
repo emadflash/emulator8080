@@ -3,6 +3,7 @@ BasedOnStyle: llvm
 IndentWidth: 4
 PointerAlignment: Right
 
+IndentCaseLabels: false
 AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true

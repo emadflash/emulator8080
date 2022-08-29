@@ -71,6 +71,12 @@ typedef ptrdiff_t isize;
         putc('\n', stderr);                                                    \
     } while (0);
 
+#ifndef Debug
+#define debug_println(...)
+#else
+#define debug_println(...) println(__VA_ARGS__)
+#endif
+
 void die(const char *fmt);
 void *xmalloc(usize size);
 void *xrealloc(void *ptr, usize size);
@@ -95,11 +101,11 @@ void *xrealloc(void *ptr, usize size);
 #endif
 
 #ifndef Assert_Message
-#define Assert_Message(cond, message)                                          \
+#define Assert_Message(cond, msg)                                              \
     do {                                                                       \
         if (!(cond)) {                                                         \
-            report_assertion_failure("Debug Assert Failure", __FILE__,         \
-                                     __LINE__, __func__, #cond, message);      \
+            report_assertion_failure("Assertion Failure", __FILE__, __LINE__,  \
+                                     __func__, #cond, msg);                    \
             DEBUG_TRAP();                                                      \
         }                                                                      \
     } while (0);
@@ -120,6 +126,21 @@ void *xrealloc(void *ptr, usize size);
 #endif
 #endif
 
+#ifndef Debug_Assert_Message
+#ifndef Debug
+#define Debug_Assert_Message(cond, msg)
+#else
+#define Debug_Assert_Message(cond, msg)                                        \
+    do {                                                                       \
+        if (!(cond)) {                                                         \
+            report_assertion_failure("Debug Assert Failure", __FILE__,         \
+                                     __LINE__, __func__, #cond, msg);          \
+            DEBUG_TRAP();                                                      \
+        }                                                                      \
+    } while (0);
+#endif
+#endif
+
 #ifndef Unreachable
 #define Unreachable()                                                          \
     do {                                                                       \
@@ -134,6 +155,15 @@ void *xrealloc(void *ptr, usize size);
     do {                                                                       \
         report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL,   \
                                  NULL);                                        \
+        DEBUG_TRAP();                                                          \
+    } while (0);
+#endif
+
+#ifndef Todo_Message
+#define Todo_Message(...)                                                      \
+    do {                                                                       \
+        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL,   \
+                                 __VA_ARGS__);                                 \
         DEBUG_TRAP();                                                          \
     } while (0);
 #endif

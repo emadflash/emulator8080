@@ -3,10 +3,10 @@ CFLAGS = -Wall -Wextra
 CFLAGS += -ggdb -fsanitize=address
 LINKFLAGS = 
 
-all: as
-	./as
+all: emulator
+	./emulator
 
-i8080: main8080.c
+emulator: main.c
 	$(CC) $(CFLAGS) $(LINKFLAGS) $^ -o $@
 
 as: as.c assemblar.c common.o
