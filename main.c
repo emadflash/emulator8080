@@ -1,5 +1,5 @@
-#include "arg_parser.c"
 #include "emulator.c"
+#include "cli.c"
 
 #define AUTHOR_NAME "madflash"
 #define AUTHOR_EMAIL_ADDRESS "backbugkaught@gmail.com"
