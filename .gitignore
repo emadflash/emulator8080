@@ -9,4 +9,3 @@ emulator8080
 log
 ins
 test.asm
-arg_parser.c

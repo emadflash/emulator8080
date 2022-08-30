@@ -1,3 +1,4 @@
+Language: Cpp
 BasedOnStyle: llvm
 
 IndentWidth: 4
@@ -7,3 +8,5 @@ IndentCaseLabels: false
 AllowShortIfStatementsOnASingleLine: true
 AllowShortLoopsOnASingleLine: false
 AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: InlineOnly
+ColumnLimit: 100
