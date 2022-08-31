@@ -80,6 +80,7 @@ typedef ptrdiff_t isize;
 void die(const char *fmt);
 void *xmalloc(usize size);
 void *xrealloc(void *ptr, usize size);
+void m_puts(char *cstring);
 
 // --------------------------------------------------------------------------
 //                          - Asserts -

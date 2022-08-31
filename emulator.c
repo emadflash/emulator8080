@@ -38,14 +38,13 @@ struct Cpu {
 };
 
 Cpu *make_cpu(u8 *program, u16 program_size, u16 starting_address) {
-    Debug_Assert_Message(program_size <= 0xffff,
-                         "Program size should less than 0xffff");
+    Debug_Assert_Message(program_size <= 0xffff, "Program size should less than 0xffff");
     Debug_Assert_Message(starting_address >= 0x0 && starting_address <= 0xffff,
                          "starting address is not between 0x0 and 0xffff");
 
     Cpu *cpu = xmalloc(sizeof(Cpu));
 
-    cpu->pc = 0x0;
+    cpu->pc = starting_address;
     cpu->sp = 0x0;
 
     cpu->accmulator = 0x0;
@@ -66,12 +65,14 @@ Cpu *make_cpu(u8 *program, u16 program_size, u16 starting_address) {
     return cpu;
 }
 
-void free_cpu(Cpu *cpu) { free(cpu); }
+void free_cpu(Cpu *cpu) {
+    free(cpu);
+}
 
 /* [Sign] [Zero] [X] [AC] [X] [Parity] [X] [Carry] */
 u8 cpu_get_flag_reg(Cpu *cpu) {
-    return (cpu->sign << 7) | (cpu->zero << 6) | (cpu->auxillary_cy << 4) |
-           (cpu->parity << 2) | cpu->cy;
+    return (cpu->sign << 7) | (cpu->zero << 6) | (cpu->auxillary_cy << 4) | (cpu->parity << 2) |
+           cpu->cy;
 }
 
 void cpu_set_flag_reg(Cpu *cpu, u8 flags) {
@@ -108,9 +109,15 @@ u16 u16_from_hi_lo_byte(u8 a, u8 b) {
     return cast(u16)(0x0000 & (a)) | (cast(u16)(b) << 8);
 }
 
-u16 cpu_reg_pair_hl(Cpu *cpu) { return u16_from_hi_lo_byte(cpu->h, cpu->l); }
-u16 cpu_reg_pair_bc(Cpu *cpu) { return u16_from_hi_lo_byte(cpu->b, cpu->c); }
-u16 cpu_reg_pair_de(Cpu *cpu) { return u16_from_hi_lo_byte(cpu->d, cpu->e); }
+u16 cpu_reg_pair_hl(Cpu *cpu) {
+    return u16_from_hi_lo_byte(cpu->h, cpu->l);
+}
+u16 cpu_reg_pair_bc(Cpu *cpu) {
+    return u16_from_hi_lo_byte(cpu->b, cpu->c);
+}
+u16 cpu_reg_pair_de(Cpu *cpu) {
+    return u16_from_hi_lo_byte(cpu->d, cpu->e);
+}
 
 void cpu_set_reg_pair_hl(Cpu *cpu, u16 hl) {
     cpu->h = cast(u8)((hl & 0xff00) >> 8);
@@ -128,10 +135,8 @@ u16 cpu_fetch_next_address(Cpu *cpu) {
 }
 
 void cpu_jump_to_address(Cpu *cpu, u16 target_address) {
-    cpu_mem_set(cpu, cpu_mem_access(cpu, cpu->sp - 1),
-                cast(u8)((cpu->pc & 0xff00) >> 8));
-    cpu_mem_set(cpu, cpu_mem_access(cpu, cpu->sp - 2),
-                cast(u8)(cpu->pc & 0x00ff));
+    cpu_mem_set(cpu, cpu_mem_access(cpu, cpu->sp - 1), cast(u8)((cpu->pc & 0xff00) >> 8));
+    cpu_mem_set(cpu, cpu_mem_access(cpu, cpu->sp - 2), cast(u8)(cpu->pc & 0x00ff));
     cpu->sp -= 2;
     cpu->pc = target_address;
 }
@@ -147,139 +152,140 @@ void cpu_swap_memory_with_val(Cpu *cpu, u16 addr, u8 *value) {
 // --------------------------------------------------------------------------
 #define inr(a) increment(a, 0x1)
 #define dcr(a) increment(a, -0x1)
-#define increment(a, by)                                                       \
-    do {                                                                       \
-        u8 sum = cast(u8)(a + by);                                             \
-        cpu->parity = has_parity(sum);                                         \
-        cpu->zero = (sum == 0x0);                                              \
-        cpu->sign = ((sum & 0x80) == 0x80);                                    \
-        a = sum;                                                               \
+#define increment(a, by)                                                                           \
+    do {                                                                                           \
+        u8 sum = cast(u8)(a + by);                                                                 \
+        cpu->parity = has_parity(sum);                                                             \
+        cpu->zero = (sum == 0x0);                                                                  \
+        cpu->sign = ((sum & 0x80) == 0x80);                                                        \
+        a = sum;                                                                                   \
     } while (0);
 
 #define inx(a, b) inxcrement(a, b, 0x1)
 #define dcx(a, b) inxcrement(a, b, -0x1)
-#define inxcrement(a, b, by)                                                   \
-    do {                                                                       \
-        u16 res = u16_from_hi_lo_byte(a, b) + by;                              \
-        a = cast(u8)((res & 0xff00) >> 8);                                     \
-        b = cast(u8)(res & 0xff);                                              \
+#define inxcrement(a, b, by)                                                                       \
+    do {                                                                                           \
+        u16 res = u16_from_hi_lo_byte(a, b) + by;                                                  \
+        a = cast(u8)((res & 0xff00) >> 8);                                                         \
+        b = cast(u8)(res & 0xff);                                                                  \
     } while (0);
 
 #define adc(a, b) add(a, b + cpu->cy)
-#define add(a, b)                                                              \
-    do {                                                                       \
-        u16 sum = cast(u16)((a) + (b));                                        \
-        cpu->cy = (sum > 0xff);                                                \
-        cpu->parity = has_parity(sum & 0xff);                                  \
-        cpu->zero = (sum == 0x0);                                              \
-        cpu->sign = ((sum & 0x80) == 0x80);                                    \
-        cpu->accmulator = cast(u8)(sum & 0xff);                                \
+#define add(a, b)                                                                                  \
+    do {                                                                                           \
+        u16 sum = cast(u16)((a) + (b));                                                            \
+        cpu->cy = (sum > 0xff);                                                                    \
+        cpu->parity = has_parity(sum & 0xff);                                                      \
+        cpu->zero = (sum == 0x0);                                                                  \
+        cpu->sign = ((sum & 0x80) == 0x80);                                                        \
+        cpu->accmulator = cast(u8)(sum & 0xff);                                                    \
     } while (0);
 
 #define sbb(a, b) sub(a, b - cpu->cy)
-#define sub(a, b)                                                              \
-    do {                                                                       \
-        u8 diff = cast(u8)((a) - (b));                                         \
-        cpu->cy = ((a) < (b));                                                 \
-        cpu->parity = has_parity(diff);                                        \
-        cpu->zero = (diff == 0x0);                                             \
-        cpu->sign = (diff == 0x80);                                            \
-        cpu->accmulator = diff;                                                \
+#define sub(a, b)                                                                                  \
+    do {                                                                                           \
+        u8 diff = cast(u8)((a) - (b));                                                             \
+        cpu->cy = ((a) < (b));                                                                     \
+        cpu->parity = has_parity(diff);                                                            \
+        cpu->zero = (diff == 0x0);                                                                 \
+        cpu->sign = (diff == 0x80);                                                                \
+        cpu->accmulator = diff;                                                                    \
     } while (0);
 
-#define ana(a, b)                                                              \
-    do {                                                                       \
-        u8 res = cast(u8)((a) & (b));                                          \
-        cpu->cy = 0;                                                           \
-        cpu->parity = has_parity(res);                                         \
-        cpu->zero = (res == 0x0);                                              \
-        cpu->sign = (res == 0x80);                                             \
+#define ana(a, b)                                                                                  \
+    do {                                                                                           \
+        u8 res = cast(u8)((a) & (b));                                                              \
+        cpu->cy = 0;                                                                               \
+        cpu->parity = has_parity(res);                                                             \
+        cpu->zero = (res == 0x0);                                                                  \
+        cpu->sign = (res == 0x80);                                                                 \
     } while (0);
 
-#define xra(a, b)                                                              \
-    do {                                                                       \
-        u8 res = cast(u8)((a) ^ (b));                                          \
-        cpu->cy = 0;                                                           \
-        cpu->parity = has_parity(res);                                         \
-        cpu->zero = (res == 0x0);                                              \
-        cpu->sign = (res == 0x80);                                             \
+#define xra(a, b)                                                                                  \
+    do {                                                                                           \
+        u8 res = cast(u8)((a) ^ (b));                                                              \
+        cpu->cy = 0;                                                                               \
+        cpu->parity = has_parity(res);                                                             \
+        cpu->zero = (res == 0x0);                                                                  \
+        cpu->sign = (res == 0x80);                                                                 \
     } while (0);
 
-#define ora(a, b)                                                              \
-    do {                                                                       \
-        u8 res = cast(u8)((a) | (b));                                          \
-        cpu->cy = 0;                                                           \
-        cpu->parity = has_parity(res);                                         \
-        cpu->zero = (res == 0x0);                                              \
-        cpu->sign = (res == 0x80);                                             \
+#define ora(a, b)                                                                                  \
+    do {                                                                                           \
+        u8 res = cast(u8)((a) | (b));                                                              \
+        cpu->cy = 0;                                                                               \
+        cpu->parity = has_parity(res);                                                             \
+        cpu->zero = (res == 0x0);                                                                  \
+        cpu->sign = (res == 0x80);                                                                 \
     } while (0);
 
-#define cmp(a, b)                                                              \
-    do {                                                                       \
-        u8 diff = cast(u8)((a) - (b));                                         \
-        cpu->cy = ((a) < (b));                                                 \
-        cpu->parity = has_parity(diff);                                        \
-        cpu->zero = (diff == 0x0);                                             \
-        cpu->sign = (diff == 0x80);                                            \
+#define cmp(a, b)                                                                                  \
+    do {                                                                                           \
+        u8 diff = cast(u8)((a) - (b));                                                             \
+        cpu->cy = ((a) < (b));                                                                     \
+        cpu->parity = has_parity(diff);                                                            \
+        cpu->zero = (diff == 0x0);                                                                 \
+        cpu->sign = (diff == 0x80);                                                                \
     } while (0);
 
-#define jump(If)                                                               \
-    do {                                                                       \
-        if (If) {                                                              \
-            cpu->pc = cpu_fetch_next_address(cpu);                             \
-        } else {                                                               \
-            cpu->pc += 2;                                                      \
-        }                                                                      \
+#define jump(If)                                                                                   \
+    do {                                                                                           \
+        if (If) {                                                                                  \
+            cpu->pc = cpu_fetch_next_address(cpu);                                                 \
+        } else {                                                                                   \
+            cpu->pc += 2;                                                                          \
+        }                                                                                          \
     } while (0);
 
-#define call(If)                                                               \
-    do {                                                                       \
-        if (If) {                                                              \
-            cpu_jump_to_address(cpu, cpu_fetch_next_address(cpu));             \
-        } else {                                                               \
-            cpu->pc += 2;                                                      \
-        }                                                                      \
+#define call(If)                                                                                   \
+    do {                                                                                           \
+        if (If) {                                                                                  \
+            cpu_jump_to_address(cpu, cpu_fetch_next_address(cpu));                                 \
+        } else {                                                                                   \
+            cpu->pc += 2;                                                                          \
+        }                                                                                          \
     } while (0);
 
-#define ret(If)                                                                \
-    do {                                                                       \
-        if (If) {                                                              \
-            cpu->pc = (cast(u16) cpu_mem_access(cpu, cpu->sp + 1) << 8) |      \
-                      cpu_mem_access(cpu, cpu->sp);                            \
-            cpu->sp += 2;                                                      \
-        }                                                                      \
+#define ret(If)                                                                                    \
+    do {                                                                                           \
+        if (If) {                                                                                  \
+            cpu->pc =                                                                              \
+                (cast(u16) cpu_mem_access(cpu, cpu->sp + 1) << 8) | cpu_mem_access(cpu, cpu->sp);  \
+            cpu->sp += 2;                                                                          \
+        }                                                                                          \
     } while (0);
 
-#define push(a, b)                                                             \
-    do {                                                                       \
-        cpu_mem_set(cpu, cpu->sp - 1, a);                                      \
-        cpu_mem_set(cpu, cpu->sp - 2, b);                                      \
-        cpu->sp -= 2;                                                          \
+#define push(a, b)                                                                                 \
+    do {                                                                                           \
+        cpu_mem_set(cpu, cpu->sp - 1, a);                                                          \
+        cpu_mem_set(cpu, cpu->sp - 2, b);                                                          \
+        cpu->sp -= 2;                                                                              \
     } while (0);
 
-#define pop(a, b)                                                              \
-    do {                                                                       \
-        b = cpu_mem_access(cpu, cpu->sp);                                      \
-        a = cpu_mem_access(cpu, cpu->sp + 1);                                  \
-        cpu->sp += 2;                                                          \
+#define pop(a, b)                                                                                  \
+    do {                                                                                           \
+        b = cpu_mem_access(cpu, cpu->sp);                                                          \
+        a = cpu_mem_access(cpu, cpu->sp + 1);                                                      \
+        cpu->sp += 2;                                                                              \
     } while (0);
 
-#define dad(regp)                                                              \
-    do {                                                                       \
-        u32 sum = cast(u32) cpu_reg_pair_hl(cpu) + regp;                       \
-        cpu->cy = ((sum & 0x10000) == 0x10000);                                \
+#define dad(regp)                                                                                  \
+    do {                                                                                           \
+        u32 sum = cast(u32) cpu_reg_pair_hl(cpu) + regp;                                           \
+        cpu->cy = ((sum & 0x10000) == 0x10000);                                                    \
     } while (0);
 
-#define lxi(a, b)                                                              \
-    do {                                                                       \
-        a = cpu_mem_access(cpu, cpu->pc + 2);                                  \
-        b = cpu_mem_access(cpu, cpu->pc + 1);                                  \
-        cpu->pc += 2;                                                          \
+#define lxi(a, b)                                                                                  \
+    do {                                                                                           \
+        a = cpu_mem_access(cpu, cpu->pc + 2);                                                      \
+        b = cpu_mem_access(cpu, cpu->pc + 1);                                                      \
+        cpu->pc += 2;                                                                              \
     } while (0);
 
 void cpu_execute(Cpu *cpu) {
     while (cpu->pc < 0xffff) {
         u8 opcode = cpu_mem_access(cpu, cpu->pc);
+        debug_println("debug: opcode: 0x%x", opcode);
 
         switch (opcode) {
         /* Empty instructions */
@@ -305,23 +311,30 @@ void cpu_execute(Cpu *cpu) {
         case 0x01: lxi(cpu->b, cpu->c); break; // LXI B
         case 0x11: lxi(cpu->d, cpu->e); break; // LXI D
         case 0x21: lxi(cpu->h, cpu->l); break; // LXI H
-        case 0x32:
+        case 0x31:
             cpu->sp = u16_from_hi_lo_byte(cpu_mem_access(cpu, cpu->pc + 2),
                                           cpu_mem_access(cpu, cpu->pc + 1));
             break; // LXI SP
 
-        /* ldax */
-        case 0x0a:
-            cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_bc(cpu));
-            break;
-        case 0x1a:
-            cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_de(cpu));
+        /* lda */
+        case 0x3a:
+            cpu->accmulator = cpu_fetch_next_address(cpu);
+            cpu += 2;
             break;
 
+        /* sta */
+        case 0x32: {
+            u16 addr = cpu_fetch_next_address(cpu);
+            cpu_mem_set(cpu, addr, cpu->accmulator);
+            cpu->pc += 2;
+        } break;
+
+        /* ldax */
+        case 0x0a: cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_bc(cpu)); break; // LDAX B
+        case 0x1a: cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_de(cpu)); break; // LDAX D
+
         /* stax */
-        case 0x02:
-            cpu_mem_set(cpu, cpu_reg_pair_bc(cpu), cpu->accmulator);
-            break; // STAX B
+        case 0x02: cpu_mem_set(cpu, cpu_reg_pair_bc(cpu), cpu->accmulator); break; // STAX B
         case 0x12:
             cpu_mem_set(cpu, cpu_reg_pair_de(cpu), cpu->accmulator);
             break; // STAX D
@@ -347,6 +360,9 @@ void cpu_execute(Cpu *cpu) {
             swap(cpu->h, cpu->d, u8);
             swap(cpu->l, cpu->e, u8);
             break;
+
+        /* cma */
+        case 0x2f: cpu->accmulator = !cpu->accmulator; break;
 
         /* inr */
         case 0x04: inr(cpu->b); break;                            // INR B
@@ -376,7 +392,7 @@ void cpu_execute(Cpu *cpu) {
         case 0x03: inx(cpu->b, cpu->c); break;
         case 0x13: inx(cpu->d, cpu->e); break;
         case 0x23: inx(cpu->h, cpu->l); break;
-        case 0x33: cpu->sp = cast(u16)(cpu->sp + 0x1); break;
+        case 0x33: cpu->sp = cpu->sp + 0x1; break;
 
         /* dcx */
         case 0x0b: dcx(cpu->b, cpu->c); break;
@@ -433,27 +449,14 @@ void cpu_execute(Cpu *cpu) {
         case 0x6d: cpu->l = cpu->l; break;
         case 0x6e: cpu->l = cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)); break;
         case 0x6f: cpu->l = cpu->accmulator; break;
-        case 0x70:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->b);
-            break;
-        case 0x71:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->c);
-            break;
-        case 0x72:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->d);
-            break;
-        case 0x73:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->e);
-            break;
-        case 0x74:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->h);
-            break;
-        case 0x75:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->l);
-            break;
+        case 0x70: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->b); break;
+        case 0x71: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->c); break;
+        case 0x72: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->d); break;
+        case 0x73: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->e); break;
+        case 0x74: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->h); break;
+        case 0x75: cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->l); break;
         case 0x77:
-            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)),
-                        cpu->accmulator);
+            cpu_mem_set(cpu, cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)), cpu->accmulator);
             break;
         case 0x78: cpu->accmulator = cpu->b; break;
         case 0x79: cpu->accmulator = cpu->c; break;
@@ -461,9 +464,7 @@ void cpu_execute(Cpu *cpu) {
         case 0x7b: cpu->accmulator = cpu->e; break;
         case 0x7c: cpu->accmulator = cpu->h; break;
         case 0x7d: cpu->accmulator = cpu->l; break;
-        case 0x7e:
-            cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_hl(cpu));
-            break;
+        case 0x7e: cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_hl(cpu)); break;
         case 0x7f: cpu->accmulator = cpu->accmulator; break;
 
         /* mvi instructions */
@@ -473,9 +474,7 @@ void cpu_execute(Cpu *cpu) {
         case 0x1e: cpu->e = cpu_fetch_next_byte(cpu); break;
         case 0x26: cpu->h = cpu_fetch_next_byte(cpu); break;
         case 0x2e: cpu->l = cpu_fetch_next_byte(cpu); break;
-        case 0x36:
-            cpu->memory[cpu_reg_pair_hl(cpu)] = cpu_fetch_next_byte(cpu);
-            break;
+        case 0x36: cpu->memory[cpu_reg_pair_hl(cpu)] = cpu_fetch_next_byte(cpu); break;
         case 0x3e: cpu->accmulator = cpu_fetch_next_byte(cpu); break;
 
         /* add instructions */
@@ -487,11 +486,9 @@ void cpu_execute(Cpu *cpu) {
         case 0x85: add(cpu->accmulator, cpu->l) break; // ADD L
         case 0x86:
             add(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ADD M
-        case 0x87: add(cpu->accmulator, cpu->accmulator) break;       // ADD A
-        case 0xc6:
-            add(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // ADI [d8]
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ADD M
+        case 0x87: add(cpu->accmulator, cpu->accmulator) break;                  // ADD A
+        case 0xc6: add(cpu->accmulator, cpu_fetch_next_byte(cpu)) break;         // ADI [d8]
 
         case 0x88: adc(cpu->accmulator, cpu->b) break; // ADC B
         case 0x89: adc(cpu->accmulator, cpu->c) break; // ADC C
@@ -501,9 +498,8 @@ void cpu_execute(Cpu *cpu) {
         case 0x8d: adc(cpu->accmulator, cpu->l) break; // ADC L
         case 0x8e:
             adc(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ADC M
-        case 0x8f: adc(cpu->accmulator, cpu->accmulator) break;       // ADC A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ADC M
+        case 0x8f: adc(cpu->accmulator, cpu->accmulator) break;                  // ADC A
         case 0xce:
             adc(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // ACI [d8]
 
@@ -516,11 +512,9 @@ void cpu_execute(Cpu *cpu) {
         case 0x95: sub(cpu->accmulator, cpu->l) break; // SUB L
         case 0x96:
             sub(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // SUB M
-        case 0x97: sub(cpu->accmulator, cpu->accmulator) break;       // SUB A
-        case 0xd6:
-            sub(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // SUI [d8]
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // SUB M
+        case 0x97: sub(cpu->accmulator, cpu->accmulator) break;                  // SUB A
+        case 0xd6: sub(cpu->accmulator, cpu_fetch_next_byte(cpu)) break;         // SUI [d8]
 
         case 0x98: sbb(cpu->accmulator, cpu->b) break; // SBB B
         case 0x99: sbb(cpu->accmulator, cpu->c) break; // SBB C
@@ -530,9 +524,8 @@ void cpu_execute(Cpu *cpu) {
         case 0x9d: sbb(cpu->accmulator, cpu->l) break; // SBB L
         case 0x9e:
             sbb(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // SUB M
-        case 0x9f: sbb(cpu->accmulator, cpu->accmulator) break;       // SUB A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // SUB M
+        case 0x9f: sbb(cpu->accmulator, cpu->accmulator) break;                  // SUB A
         case 0xde:
             sbb(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // SBI [d8]
 
@@ -545,9 +538,8 @@ void cpu_execute(Cpu *cpu) {
         case 0xa5: ana(cpu->accmulator, cpu->l) break; // ANA L
         case 0xa6:
             ana(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ANA M
-        case 0xa7: ana(cpu->accmulator, cpu->accmulator) break;       // ANA A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ANA M
+        case 0xa7: ana(cpu->accmulator, cpu->accmulator) break;                  // ANA A
 
         case 0xe6:
             ana(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // ANI [d8]
@@ -561,9 +553,8 @@ void cpu_execute(Cpu *cpu) {
         case 0xad: xra(cpu->accmulator, cpu->l) break; // XRA L
         case 0xae:
             xra(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // XRA M
-        case 0xaf: xra(cpu->accmulator, cpu->accmulator) break;       // XRA A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // XRA M
+        case 0xaf: xra(cpu->accmulator, cpu->accmulator) break;                  // XRA A
 
         case 0xee:
             xra(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // XRI [d8]
@@ -577,9 +568,8 @@ void cpu_execute(Cpu *cpu) {
         case 0xb5: ora(cpu->accmulator, cpu->l) break; // ORA L
         case 0xb6:
             ora(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ORA M
-        case 0xb7: ora(cpu->accmulator, cpu->accmulator) break;       // ORA A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // ORA M
+        case 0xb7: ora(cpu->accmulator, cpu->accmulator) break;                  // ORA A
         case 0xf6:
             ora(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // ORI [d8]
 
@@ -592,9 +582,8 @@ void cpu_execute(Cpu *cpu) {
         case 0xbd: cmp(cpu->accmulator, cpu->l) break; // CMP L
         case 0xbe:
             cmp(cpu->accmulator,
-                cpu_mem_access(
-                    cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // CMP M
-        case 0xbf: cmp(cpu->accmulator, cpu->accmulator) break;       // CMP A
+                cpu_mem_access(cpu, u16_from_hi_lo_byte(cpu->h, cpu->l))) break; // CMP M
+        case 0xbf: cmp(cpu->accmulator, cpu->accmulator) break;                  // CMP A
         case 0xfe:
             cmp(cpu->accmulator, cpu_fetch_next_byte(cpu)) break; // CPI [d8]
 
@@ -649,7 +638,7 @@ void cpu_execute(Cpu *cpu) {
         case 0xdc: call(cpu->cy == 0x1); break;     // CC [Addr]
         case 0xd4: call(cpu->cy == 0x0); break;     // CNC [Addr]
         case 0xf4: call(cpu->sign == 0x0); break;   // CP [Addr]
-        case 0xfc: call(cpu->sign == 0x1); break;   // CP [Addr]
+        case 0xfc: call(cpu->sign == 0x1); break;   // CM [Addr]
         case 0xe4: call(cpu->parity == 0x0); break; // CPO [Addr]
         case 0xec:
             call(cpu->parity == 0x1);
@@ -681,11 +670,9 @@ void cpu_execute(Cpu *cpu) {
         case 0xff: cpu_jump_to_address(cpu, 0x0038); break;
 
         /* Stack push */
-        case 0xf5:
-            push(cpu->accmulator, cpu_get_flag_reg(cpu));
-            break;                              // PUSH PSW
-        case 0xc5: push(cpu->b, cpu->c); break; // PUSH B
-        case 0xd5: push(cpu->d, cpu->e); break; // PUSH D
+        case 0xf5: push(cpu->accmulator, cpu_get_flag_reg(cpu)); break; // PUSH PSW
+        case 0xc5: push(cpu->b, cpu->c); break;                         // PUSH B
+        case 0xd5: push(cpu->d, cpu->e); break;                         // PUSH D
         case 0xe5:
             push(cpu->h, cpu->l);
             break; // PUSH H
@@ -708,10 +695,10 @@ void cpu_execute(Cpu *cpu) {
         } break;
 
         /* Dad */
-        case 0x09: dad(cpu_reg_pair_bc(cpu)); break;
-        case 0x19: dad(cpu_reg_pair_de(cpu)); break;
-        case 0x29: dad(cpu_reg_pair_hl(cpu)); break;
-        case 0x39: dad(cpu->sp); break;
+        case 0x09: dad(cpu_reg_pair_bc(cpu)); break; // DAD BC
+        case 0x19: dad(cpu_reg_pair_de(cpu)); break; // DAD DE
+        case 0x29: dad(cpu_reg_pair_hl(cpu)); break; // DAD HL
+        case 0x39: dad(cpu->sp); break; // DAD SP
 
         case 0xdb: // IN [D8]
         case 0xd3: // OUT [D8]

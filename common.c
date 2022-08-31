@@ -22,22 +22,31 @@ void *xrealloc(void *ptr, usize size) {
     return _ptr;
 }
 
+void m_puts(char *cstring) {
+    while (*cstring)
+        putc(*cstring++, stdout);
+}
+
 // --------------------------------------------------------------------------
 //                          - Character -
 // --------------------------------------------------------------------------
-bool is_binary_digit(int ch) { return (ch == '0' || ch == '1'); }
-bool is_octal_digit(int ch) { return ((ch >= '1' && ch <= '8')); }
-bool is_decimal_digit(int ch) { return (ch >= '0' && ch <= '9'); }
+bool is_binary_digit(int ch) {
+    return (ch == '0' || ch == '1');
+}
+bool is_octal_digit(int ch) {
+    return ((ch >= '1' && ch <= '8'));
+}
+bool is_decimal_digit(int ch) {
+    return (ch >= '0' && ch <= '9');
+}
 bool is_hex_digit(int ch) {
-    return (is_decimal_digit(ch) || (ch >= 'a' && ch <= 'f') ||
-            (ch >= 'A' && ch <= 'F'));
+    return (is_decimal_digit(ch) || (ch >= 'a' && ch <= 'f') || (ch >= 'A' && ch <= 'F'));
 }
 bool is_alphabet(int ch) {
     return ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z'));
 }
 bool is_alphanumeric(int ch) {
-    return ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') ||
-            (ch >= '0' && ch <= '9'));
+    return ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
 }
 
 f64 base2_to_f64(char *str, usize length) {
@@ -88,11 +97,9 @@ f64 base16_to_f64(char *str, usize length) {
 //                          - Asserts -
 // --------------------------------------------------------------------------
 
-void report_assertion_failure(char *prefix, const char *filename,
-                              usize line_number, const char *function_name,
-                              char *cond, char *msg, ...) {
-    fprintf(stderr, "%s:%zu: %s: %s: ", filename, line_number, prefix,
-            function_name);
+void report_assertion_failure(char *prefix, const char *filename, usize line_number,
+                              const char *function_name, char *cond, char *msg, ...) {
+    fprintf(stderr, "%s:%zu: %s: %s: ", filename, line_number, prefix, function_name);
     if (cond) {
         fprintf(stderr, "`%s` ", cond);
     }
@@ -120,7 +127,9 @@ String string_reserve(usize cap) {
     return (String)(h + 1);
 }
 
-String make_string_empty() { return string_reserve(0); }
+String make_string_empty() {
+    return string_reserve(0);
+}
 
 String make_string(char *str, usize len) {
     String s = string_reserve(len);
@@ -186,4 +195,3 @@ String file_as_string(char *filepath) {
     fclose(f);
     return content;
 }
-

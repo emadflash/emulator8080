@@ -1,4 +1,5 @@
 #include "emulator.c"
+#include "disassemblar.c"
 #include "cli.c"
 
 #define AUTHOR_NAME "madflash"
@@ -10,6 +11,7 @@ typedef struct Cli_Config Cli_Config;
 struct Cli_Config {
     char *rom_filepath;
     bool is_disassemble;
+    int start_address;
 };
 
 Cli_Config create_config() {
@@ -25,6 +27,7 @@ void init_config_from_cli(Cli_Config *conf, int argc, char **argv) {
 
     Cli_Flag optionals[] = {
         Flag_Bool(&conf->is_disassemble, "d", "dis", "disassemble binary"),
+        Flag_Int(&conf->start_address, "s", "start-addr", "starting address"),
     };
 
     Cli cli =
@@ -41,9 +44,13 @@ void init_config_from_cli(Cli_Config *conf, int argc, char **argv) {
 
 void run(Cli_Config *conf) {
     String rom = file_as_string(conf->rom_filepath);
-    Cpu *cpu = make_cpu(cast(u8 *) rom, string_length(rom), 0x0000);
+    Cpu *cpu = make_cpu(cast(u8 *) rom, string_length(rom), cast(u16) conf->start_address);
 
-    cpu_execute(cpu);
+    if (conf->is_disassemble) {
+        disassemble(cpu);
+    } else {
+        cpu_execute(cpu);
+    }
 
     free_cpu(cpu);
     free_string(rom);
