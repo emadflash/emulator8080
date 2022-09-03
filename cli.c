@@ -149,7 +149,8 @@ void cli_show_usage_message(Cli *cli, FILE *stream) {
                     flag_type_to_cstring[temp_flag->type], temp_flag->description);
         }
     }
-    fputc('\n', stream);
+
+    fprintf(stream, "  -h| --help    show this help message\n\n");
 }
 
 static int strip_dashes(char **arg) {

@@ -42,11 +42,19 @@ void init_config_from_cli(Cli_Config *conf, int argc, char **argv) {
     }
 }
 
-void run(Cli_Config *conf) {
-    String rom = file_as_string(conf->rom_filepath);
-    Cpu *cpu = make_cpu(cast(u8 *) rom, string_length(rom), cast(u16) conf->start_address);
+int main(int argc, char **argv) {
+    Cli_Config conf = create_config();
+    init_config_from_cli(&conf, argc, argv);
 
-    if (conf->is_disassemble) {
+    String rom = file_as_string(conf.rom_filepath);
+    if (!rom) {
+        eprintln("error: invaild file: %s", conf.rom_filepath);
+        return - 1;
+    }
+
+    Cpu *cpu = make_cpu(cast(u8 *) rom, string_length(rom), cast(u16) conf.start_address);
+
+    if (conf.is_disassemble) {
         disassemble(cpu);
     } else {
         cpu_execute(cpu);
@@ -54,13 +62,6 @@ void run(Cli_Config *conf) {
 
     free_cpu(cpu);
     free_string(rom);
-}
-
-int main(int argc, char **argv) {
-    Cli_Config conf = create_config();
-    init_config_from_cli(&conf, argc, argv);
-
-    run(&conf);
 
     return 0;
 }

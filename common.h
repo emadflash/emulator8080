@@ -50,25 +50,25 @@ typedef size_t usize;
 typedef ptrdiff_t isize;
 
 #define cast(Type) (Type)
-#define swap(a, b, Type)                                                       \
-    do {                                                                       \
-        Type tmp = a;                                                          \
-        a = b;                                                                 \
-        b = tmp;                                                               \
+#define swap(a, b, Type)                                                                           \
+    do {                                                                                           \
+        Type tmp = a;                                                                              \
+        a = b;                                                                                     \
+        b = tmp;                                                                                   \
     } while (0);
 
 #define array_sizeof(arr, Type) (sizeof(arr) / sizeof(Type))
 #define are_cstrings_equal(cstr, str, length) (strncmp(cstr, str, length) == 0)
 
-#define println(...)                                                           \
-    do {                                                                       \
-        fprintf(stdout, __VA_ARGS__);                                          \
-        putc('\n', stdout);                                                    \
+#define println(...)                                                                               \
+    do {                                                                                           \
+        fprintf(stdout, __VA_ARGS__);                                                              \
+        putc('\n', stdout);                                                                        \
     } while (0);
-#define eprintln(...)                                                          \
-    do {                                                                       \
-        fprintf(stderr, __VA_ARGS__);                                          \
-        putc('\n', stderr);                                                    \
+#define eprintln(...)                                                                              \
+    do {                                                                                           \
+        fprintf(stderr, __VA_ARGS__);                                                              \
+        putc('\n', stderr);                                                                        \
     } while (0);
 
 #ifndef Debug
@@ -91,24 +91,24 @@ void m_puts(char *cstring);
 #endif
 
 #ifndef Assert
-#define Assert(cond)                                                           \
-    do {                                                                       \
-        if (!(cond)) {                                                         \
-            report_assertion_failure("Assertion Failure", __FILE__, __LINE__,  \
-                                     __func__, #cond, NULL);                   \
-            DEBUG_TRAP();                                                      \
-        }                                                                      \
+#define Assert(cond)                                                                               \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            report_assertion_failure("Assertion Failure", __FILE__, __LINE__, __func__, #cond,     \
+                                     NULL);                                                        \
+            DEBUG_TRAP();                                                                          \
+        }                                                                                          \
     } while (0);
 #endif
 
 #ifndef Assert_Message
-#define Assert_Message(cond, msg)                                              \
-    do {                                                                       \
-        if (!(cond)) {                                                         \
-            report_assertion_failure("Assertion Failure", __FILE__, __LINE__,  \
-                                     __func__, #cond, msg);                    \
-            DEBUG_TRAP();                                                      \
-        }                                                                      \
+#define Assert_Message(cond, msg)                                                                  \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            report_assertion_failure("Assertion Failure", __FILE__, __LINE__, __func__, #cond,     \
+                                     msg);                                                         \
+            DEBUG_TRAP();                                                                          \
+        }                                                                                          \
     } while (0);
 #endif
 
@@ -116,13 +116,13 @@ void m_puts(char *cstring);
 #ifndef Debug
 #define Debug_Assert(cond)
 #else
-#define Debug_Assert(cond)                                                     \
-    do {                                                                       \
-        if (!(cond)) {                                                         \
-            report_assertion_failure("Debug Assert Failure", __FILE__,         \
-                                     __LINE__, __func__, #cond, NULL);         \
-            DEBUG_TRAP();                                                      \
-        }                                                                      \
+#define Debug_Assert(cond)                                                                         \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            report_assertion_failure("Debug Assert Failure", __FILE__, __LINE__, __func__, #cond,  \
+                                     NULL);                                                        \
+            DEBUG_TRAP();                                                                          \
+        }                                                                                          \
     } while (0);
 #endif
 #endif
@@ -131,47 +131,43 @@ void m_puts(char *cstring);
 #ifndef Debug
 #define Debug_Assert_Message(cond, msg)
 #else
-#define Debug_Assert_Message(cond, msg)                                        \
-    do {                                                                       \
-        if (!(cond)) {                                                         \
-            report_assertion_failure("Debug Assert Failure", __FILE__,         \
-                                     __LINE__, __func__, #cond, msg);          \
-            DEBUG_TRAP();                                                      \
-        }                                                                      \
+#define Debug_Assert_Message(cond, msg)                                                            \
+    do {                                                                                           \
+        if (!(cond)) {                                                                             \
+            report_assertion_failure("Debug Assert Failure", __FILE__, __LINE__, __func__, #cond,  \
+                                     msg);                                                         \
+            DEBUG_TRAP();                                                                          \
+        }                                                                                          \
     } while (0);
 #endif
 #endif
 
 #ifndef Unreachable
-#define Unreachable()                                                          \
-    do {                                                                       \
-        report_assertion_failure("Unreachable", __FILE__, __LINE__, __func__,  \
-                                 NULL, NULL);                                  \
-        DEBUG_TRAP();                                                          \
+#define Unreachable()                                                                              \
+    do {                                                                                           \
+        report_assertion_failure("Unreachable", __FILE__, __LINE__, __func__, NULL, NULL);         \
+        DEBUG_TRAP();                                                                              \
     } while (0);
 #endif
 
 #ifndef Todo
-#define Todo()                                                                 \
-    do {                                                                       \
-        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL,   \
-                                 NULL);                                        \
-        DEBUG_TRAP();                                                          \
+#define Todo()                                                                                     \
+    do {                                                                                           \
+        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL, NULL);                \
+        DEBUG_TRAP();                                                                              \
     } while (0);
 #endif
 
 #ifndef Todo_Message
-#define Todo_Message(...)                                                      \
-    do {                                                                       \
-        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL,   \
-                                 __VA_ARGS__);                                 \
-        DEBUG_TRAP();                                                          \
+#define Todo_Message(...)                                                                          \
+    do {                                                                                           \
+        report_assertion_failure("Todo", __FILE__, __LINE__, __func__, NULL, __VA_ARGS__);         \
+        DEBUG_TRAP();                                                                              \
     } while (0);
 #endif
 
-void report_assertion_failure(char *prefix, const char *filename,
-                              usize line_number, const char *function_name,
-                              char *cond, char *msg, ...);
+void report_assertion_failure(char *prefix, const char *filename, usize line_number,
+                              const char *function_name, char *cond, char *msg, ...);
 
 // --------------------------------------------------------------------------
 //                          - Character -
@@ -187,11 +183,10 @@ bool is_alphanumeric(int ch);
 #define binary_digit_to_int(digit) (digit - '0')
 #define octal_digit_to_int(digit) (digit - '0')
 #define decimal_digit_to_int(digit) (digit - '0')
-#define hex_digit_to_int(digit)                                                \
-    ((digit >= 'a' && digit <= 'f')                                            \
-         ? (digit - 'a' + 10)                                                  \
-         : ((digit >= 'A' && digit <= 'F') ? (digit - 'A' + 10)                \
-                                           : (digit - '0')))
+#define hex_digit_to_int(digit)                                                                    \
+    ((digit >= 'a' && digit <= 'f')                                                                \
+         ? (digit - 'a' + 10)                                                                      \
+         : ((digit >= 'A' && digit <= 'F') ? (digit - 'A' + 10) : (digit - '0')))
 
 f64 base2_to_f64(char *str, usize length);
 f64 base8_to_f64(char *str, usize length);
@@ -234,37 +229,34 @@ struct ArrayHeader {
 #define array_length(a) ARRAY_HEADER(a)->length
 #define array_capacity(a) ARRAY_HEADER(a)->capacity
 #define free_array(a) free(ARRAY_HEADER(a))
-#define array_for_each(a, counter)                                             \
+#define array_for_each(a, counter)                                                                 \
     for (usize(counter) = 0; (counter) < array_length(a); ++(counter))
 
-#define array_reserve(a, cap)                                                  \
-    do {                                                                       \
-        void **__array = (void **)&(a);                                        \
-        ArrayHeader *h = (ArrayHeader *)xmalloc(sizeof(ArrayHeader) +          \
-                                                (sizeof(*(a)) * (cap)));       \
-        h->capacity = cap;                                                     \
-        h->length = 0;                                                         \
-        *__array = (void *)(h + 1);                                            \
+#define array_reserve(a, cap)                                                                      \
+    do {                                                                                           \
+        void **__array = (void **)&(a);                                                            \
+        ArrayHeader *h = (ArrayHeader *)xmalloc(sizeof(ArrayHeader) + (sizeof(*(a)) * (cap)));     \
+        h->capacity = cap;                                                                         \
+        h->length = 0;                                                                             \
+        *__array = (void *)(h + 1);                                                                \
     } while (0);
 
 #define init_array(a) array_reserve(a, ARRAY_GROW_FORMULA(0))
-#define array_push(a, VAL)                                                     \
-    do {                                                                       \
-        if (array_length(a) >= array_capacity(a)) {                            \
-            void **__array = (void **)&(a);                                    \
-            ArrayHeader *h = ARRAY_HEADER(a);                                  \
-            ArrayHeader *nh = (ArrayHeader *)xmalloc(                          \
-                sizeof(ArrayHeader) +                                          \
-                sizeof(*(a)) * ARRAY_GROW_FORMULA(array_capacity(a)));         \
-            memmove(nh, h,                                                     \
-                    sizeof(ArrayHeader) + sizeof(*(a)) * array_length(a));     \
-            nh->capacity = ARRAY_GROW_FORMULA(array_length(a));                \
-            nh->length = h->length;                                            \
-            free(h);                                                           \
-            *__array = (void *)(nh + 1);                                       \
-        }                                                                      \
-        a[array_length(a)] = VAL;                                              \
-        array_length(a) += 1;                                                  \
+#define array_push(a, VAL)                                                                         \
+    do {                                                                                           \
+        if (array_length(a) >= array_capacity(a)) {                                                \
+            void **__array = (void **)&(a);                                                        \
+            ArrayHeader *h = ARRAY_HEADER(a);                                                      \
+            ArrayHeader *nh = (ArrayHeader *)xmalloc(                                              \
+                sizeof(ArrayHeader) + sizeof(*(a)) * ARRAY_GROW_FORMULA(array_capacity(a)));       \
+            memmove(nh, h, sizeof(ArrayHeader) + sizeof(*(a)) * array_length(a));                  \
+            nh->capacity = ARRAY_GROW_FORMULA(array_length(a));                                    \
+            nh->length = h->length;                                                                \
+            free(h);                                                                               \
+            *__array = (void *)(nh + 1);                                                           \
+        }                                                                                          \
+        a[array_length(a)] = VAL;                                                                  \
+        array_length(a) += 1;                                                                      \
     } while (0);
 
 // --------------------------------------------------------------------------

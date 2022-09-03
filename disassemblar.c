@@ -1,6 +1,7 @@
-// NOTE(madflash) - These functions don't modify Cpu
-// They uses Cpu for its pc, cpu_fetch_next_byte, cpu_fetch_next_address
-
+/*
+ * NOTE(madflash) - These functions don't modify Cpu
+ * They uses Cpu for its pc, cpu_fetch_next_byte, cpu_fetch_next_address
+ */
 void disassemblar_pretty_print_ins(Cpu *cpu, u8 ins_size, char *fmt, ...) {
     Assert_Message(ins_size > 0 && ins_size <= 3, "ins_size should be greater than 0 and less than "
                                                   "4, since max instructions can be of 3 bytes");

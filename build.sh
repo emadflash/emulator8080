@@ -6,7 +6,8 @@ set -eu
 : ${CFLAGS=}
 : ${LDFLAGS=}
 
-CFLAGS="$CFLAGS -std=c99 -Wall -Wextra -pedantic"
+TARGET="emulator8080"
+CFLAGS="$CFLAGS -std=c99"
 LDFLAGS="$LDFLAGS -lm"
 
 panic() {
@@ -17,11 +18,11 @@ panic() {
 build_emulator() {
     case $1 in
     debug)
-        EXTRAFLAGS="-ggdb -DDebug"
+        EXTRAFLAGS="-Wall -Wextra -pedantic -ggdb -DDebug"
         ;;
 
     release)
-        EXTRAFLAGS="-O3"
+        EXTRAFLAGS="-O3 -DRelease"
         ;;
 
     *)
@@ -29,7 +30,7 @@ build_emulator() {
     esac
 
     set -x
-    $CC $CFLAGS $EXTRAFLAGS $LDFLAGS main.c -o emulator8080
+    $CC $CFLAGS $EXTRAFLAGS $LDFLAGS main.c -o $TARGET
     set +x
 }
 
