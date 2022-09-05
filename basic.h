@@ -181,6 +181,9 @@ bool is_hex_digit(int ch);
 bool is_alphabet(int ch);
 bool is_alphanumeric(int ch);
 
+int to_lowercase(int ch);
+int to_uppercase(int ch);
+
 #define binary_digit_to_int(digit) (digit - '0')
 #define octal_digit_to_int(digit) (digit - '0')
 #define decimal_digit_to_int(digit) (digit - '0')

@@ -8,7 +8,7 @@
 #include "cli.c"
 
 // --------------------------------------------------------------------------
-//                          - TOKEN_Kind -
+//                          - tokens -
 // --------------------------------------------------------------------------
 #define TOKEN_KINDS                                                                                \
     TOKEN_KIND(TOKEN_FAULTY, "Faulty token!!!")                                                    \
@@ -18,11 +18,84 @@
     TOKEN_KIND(TOKEN_NUMBER_HEX, "hexadecimal number")                                             \
     TOKEN_KIND(TOKEN_NUMBER_OCTAL, "octal number")                                                 \
     TOKEN_KIND(TOKEN_NUMBER_FLOAT, "float number")                                                 \
-                                                                                                   \
     TOKEN_KIND(TOKEN_COMMA, "Comma")                                                               \
     TOKEN_KIND(TOKEN_COLON, "Colon")                                                               \
     TOKEN_KIND(TOKEN_SEMICOLON, "Semicolon")                                                       \
+                                                                                                   \
     TOKEN_KIND(TOKEN_IDENTIFIER, "Identifier")                                                     \
+    TOKEN_KIND(TOKEN_KW_HLT, "Hlt")                                                                \
+    TOKEN_KIND(TOKEN_KW_MOV, "Mov")                                                                \
+    TOKEN_KIND(TOKEN_KW_ADD, "Add")                                                                \
+    TOKEN_KIND(TOKEN_KW_ADC, "Adc")                                                                \
+    TOKEN_KIND(TOKEN_KW_SUB, "Sub")                                                                \
+    TOKEN_KIND(TOKEN_KW_SBB, "Sbb")                                                                \
+    TOKEN_KIND(TOKEN_KW_ANA, "Ana")                                                                \
+    TOKEN_KIND(TOKEN_KW_XRA, "Xra")                                                                \
+    TOKEN_KIND(TOKEN_KW_ORA, "Ora")                                                                \
+    TOKEN_KIND(TOKEN_KW_CMP, "Cmp")                                                                \
+    TOKEN_KIND(TOKEN_KW_INR, "Inr")                                                                \
+    TOKEN_KIND(TOKEN_KW_DCR, "Dcr")                                                                \
+    TOKEN_KIND(TOKEN_KW_INX, "Inx")                                                                \
+    TOKEN_KIND(TOKEN_KW_DCX, "Dcx")                                                                \
+    TOKEN_KIND(TOKEN_KW_RLC, "Rlc")                                                                \
+    TOKEN_KIND(TOKEN_KW_RRC, "Rrc")                                                                \
+    TOKEN_KIND(TOKEN_KW_RAL, "Ral")                                                                \
+    TOKEN_KIND(TOKEN_KW_RAR, "Rar")                                                                \
+    TOKEN_KIND(TOKEN_KW_CMA, "Cma")                                                                \
+    TOKEN_KIND(TOKEN_KW_CMC, "Cmc")                                                                \
+    TOKEN_KIND(TOKEN_KW_STC, "Stc")                                                                \
+    TOKEN_KIND(TOKEN_KW_RET, "Ret")                                                                \
+    TOKEN_KIND(TOKEN_KW_RZ, "Rz")                                                                  \
+    TOKEN_KIND(TOKEN_KW_RNZ, "Rnz")                                                                \
+    TOKEN_KIND(TOKEN_KW_RC, "Rc")                                                                  \
+    TOKEN_KIND(TOKEN_KW_RNC, "Rnc")                                                                \
+    TOKEN_KIND(TOKEN_KW_RPO, "Rpo")                                                                \
+    TOKEN_KIND(TOKEN_KW_RPE, "Rpe")                                                                \
+    TOKEN_KIND(TOKEN_KW_RP, "Rp")                                                                  \
+    TOKEN_KIND(TOKEN_KW_RM, "Rm")                                                                  \
+    TOKEN_KIND(TOKEN_KW_JMP, "Jmp")                                                                \
+    TOKEN_KIND(TOKEN_KW_JC, "Jc")                                                                  \
+    TOKEN_KIND(TOKEN_KW_JNC, "Jnc")                                                                \
+    TOKEN_KIND(TOKEN_KW_JZ, "Jz")                                                                  \
+    TOKEN_KIND(TOKEN_KW_JNZ, "Jnz")                                                                \
+    TOKEN_KIND(TOKEN_KW_JPO, "Jpo")                                                                \
+    TOKEN_KIND(TOKEN_KW_JPE, "Jpe")                                                                \
+    TOKEN_KIND(TOKEN_KW_JP, "Jp")                                                                  \
+    TOKEN_KIND(TOKEN_KW_JM, "Jm")                                                                  \
+    TOKEN_KIND(TOKEN_KW_CALL, "Call")                                                              \
+    TOKEN_KIND(TOKEN_KW_CC, "Cc")                                                                  \
+    TOKEN_KIND(TOKEN_KW_CNC, "Cnc")                                                                \
+    TOKEN_KIND(TOKEN_KW_CZ, "Cz")                                                                  \
+    TOKEN_KIND(TOKEN_KW_CNZ, "Cnz")                                                                \
+    TOKEN_KIND(TOKEN_KW_CPO, "Cpo")                                                                \
+    TOKEN_KIND(TOKEN_KW_CPE, "Cpe")                                                                \
+    TOKEN_KIND(TOKEN_KW_CP, "Cp")                                                                  \
+    TOKEN_KIND(TOKEN_KW_CM, "Cm")                                                                  \
+    TOKEN_KIND(TOKEN_KW_SHLD, "Shld")                                                              \
+    TOKEN_KIND(TOKEN_KW_LHLD, "Lhld")                                                              \
+    TOKEN_KIND(TOKEN_KW_STA, "Sta")                                                                \
+    TOKEN_KIND(TOKEN_KW_LDA, "Lda")                                                                \
+    TOKEN_KIND(TOKEN_KW_LDAX, "Ldax")                                                              \
+    TOKEN_KIND(TOKEN_KW_LXI, "Lxi")                                                                \
+    TOKEN_KIND(TOKEN_KW_ADI, "Adi")                                                                \
+    TOKEN_KIND(TOKEN_KW_ACI, "Aci")                                                                \
+    TOKEN_KIND(TOKEN_KW_SUI, "Sui")                                                                \
+    TOKEN_KIND(TOKEN_KW_SBI, "Sbi")                                                                \
+    TOKEN_KIND(TOKEN_KW_ANI, "Ani")                                                                \
+    TOKEN_KIND(TOKEN_KW_XRI, "Xri")                                                                \
+    TOKEN_KIND(TOKEN_KW_ORI, "Ori")                                                                \
+    TOKEN_KIND(TOKEN_KW_CPI, "Cpi")                                                                \
+    TOKEN_KIND(TOKEN_KW_OUT, "Out")                                                                \
+    TOKEN_KIND(TOKEN_KW_IN, "In")                                                                  \
+    TOKEN_KIND(TOKEN_KW_MVI, "Mvi")                                                                \
+    TOKEN_KIND(TOKEN_KW_PUSH, "Push")                                                              \
+    TOKEN_KIND(TOKEN_KW_POP, "Pop")                                                                \
+    TOKEN_KIND(TOKEN_KW_PCHL, "Pchl")                                                              \
+    TOKEN_KIND(TOKEN_KW_XTHL, "Xthl")                                                              \
+    TOKEN_KIND(TOKEN_KW_RST, "Rst")                                                                \
+    TOKEN_KIND(TOKEN_KW_EI, "Ei")                                                                  \
+    TOKEN_KIND(TOKEN_KW_DI, "Di")                                                                  \
+    TOKEN_KIND(TOKEN_KW_DAD, "Dad")                                                                \
                                                                                                    \
     TOKEN_KIND(TOKEN_END_OF_FILE, "end_of_file")                                                   \
     TOKEN_KIND(TOKEN_Kind_COUNT, NULL)
@@ -35,7 +108,7 @@ typedef enum {
 #define TOKEN_KIND(kind_name, ...) kind_name,
     TOKEN_KINDS
 #undef TOKEN_KIND
-} TOKEN_Kind;
+} Token_Kind;
 
 static char const *token_kind_to_cstring[] = {
 #define TOKEN_KIND(kind_name, cstring) [kind_name] = cstring,
@@ -43,23 +116,23 @@ static char const *token_kind_to_cstring[] = {
 #undef TOKEN_KIND
 };
 
-typedef struct TOKEN_Pos TOKEN_Pos;
-struct TOKEN_Pos {
+typedef struct Token_Pos Token_Pos;
+struct Token_Pos {
     usize row, col;
 };
 
-typedef struct TOKEN TOKEN;
-struct TOKEN {
+typedef struct Token Token;
+struct Token {
     char *text;
     usize text_length;
-    TOKEN_Kind kind;
+    Token_Kind kind;
     char *line_start;
-    TOKEN_Pos pos;
+    Token_Pos pos;
 };
 
-static TOKEN make_token(char *text, size_t text_length, TOKEN_Kind kind, TOKEN_Pos pos,
+static Token make_token(char *text, size_t text_length, Token_Kind kind, Token_Pos pos,
                         char *line_start) {
-    return (TOKEN){
+    return (Token){
         .text = text,
         .text_length = text_length,
         .kind = kind,
@@ -68,7 +141,7 @@ static TOKEN make_token(char *text, size_t text_length, TOKEN_Kind kind, TOKEN_P
     };
 }
 
-static f64 number_token_to_f64(TOKEN *token) {
+static f64 number_token_to_f64(Token *token) {
     Debug_Assert(is_token_number(token->kind));
 
     switch (token->kind) {
@@ -96,8 +169,8 @@ struct Lexer {
     char *has_error; /* Error string otherwise NULL */
 };
 
-static TOKEN_Pos current_pos(Lexer *l) {
-    return (TOKEN_Pos){.row = l->row, .col = l->col};
+static Token_Pos current_pos(Lexer *l) {
+    return (Token_Pos){.row = l->row, .col = l->col};
 }
 
 static char nextchar(Lexer *l) {
@@ -171,9 +244,9 @@ static void generic_number_scan(Lexer *l, bool (*is_vaild_digit)(int)) {
     }
 }
 
-static TOKEN scan_num(Lexer *l) {
-    TOKEN_Kind kind;
-    TOKEN_Pos pos = current_pos(l);
+static Token scan_num(Lexer *l) {
+    Token_Kind kind;
+    Token_Pos pos = current_pos(l);
     char *save = l->curr;
 
     if (l->current_char == '.') {
@@ -222,23 +295,127 @@ static TOKEN scan_num(Lexer *l) {
     return make_token(save, l->curr - save + 1, kind, pos, l->line_start);
 }
 
-static TOKEN scan_iden(Lexer *l) {
+bool lexer_is_keyword_instruction(char *text, usize text_length, char *kw_ins_lowercase,
+                                  usize kw_ins_length) {
+    if (text_length != kw_ins_length) return false;
+    while (text_length-- > 0) {
+        if (to_lowercase(*text) != *kw_ins_lowercase) return false;
+        text++;
+        kw_ins_lowercase++;
+    }
+    return true;
+}
+
+static Token scan_iden(Lexer *l) {
     size_t text_length;
     char *text = l->curr;
-    TOKEN_Pos pos = current_pos(l);
+    Token_Pos pos = current_pos(l);
 
     while (peeknext(l) && (*peeknext(l) == '_' || is_alphanumeric(*peeknext(l)))) {
         nextchar(l);
     }
 
     text_length = l->curr - text + 1;
+    if (text_length > 4) return make_token(text, text_length, TOKEN_IDENTIFIER, pos, l->line_start);
+
+#define if_kw_instruction_then_return(kw, kw_cstring_lowercase, kw_cstring_lowercase_length)       \
+    if (lexer_is_keyword_instruction(text, text_length, kw_cstring_lowercase,                      \
+                                     kw_cstring_lowercase_length)) {                               \
+        return make_token(text, text_length, kw, pos, l->line_start);                              \
+    }
+
+    switch (text_length) {
+    case 2:
+        if_kw_instruction_then_return(TOKEN_KW_EI, "ei", 2);
+        if_kw_instruction_then_return(TOKEN_KW_DI, "di", 2);
+        if_kw_instruction_then_return(TOKEN_KW_IN, "in", 2);
+        if_kw_instruction_then_return(TOKEN_KW_RZ, "rz", 2);
+        if_kw_instruction_then_return(TOKEN_KW_RC, "rc", 2);
+        if_kw_instruction_then_return(TOKEN_KW_RP, "rp", 2);
+        if_kw_instruction_then_return(TOKEN_KW_RM, "rm", 2);
+        if_kw_instruction_then_return(TOKEN_KW_JZ, "jz", 2);
+        if_kw_instruction_then_return(TOKEN_KW_JC, "jc", 2);
+        if_kw_instruction_then_return(TOKEN_KW_JP, "jp", 2);
+        if_kw_instruction_then_return(TOKEN_KW_JM, "jm", 2);
+        if_kw_instruction_then_return(TOKEN_KW_CC, "cc", 2);
+        if_kw_instruction_then_return(TOKEN_KW_CZ, "cz", 2);
+        if_kw_instruction_then_return(TOKEN_KW_CZ, "cz", 2);
+        if_kw_instruction_then_return(TOKEN_KW_CP, "cp", 2);
+        if_kw_instruction_then_return(TOKEN_KW_CM, "cm", 2);
+        break;
+
+    case 3:
+        if_kw_instruction_then_return(TOKEN_KW_OUT, "out", 3);
+        if_kw_instruction_then_return(TOKEN_KW_HLT, "hlt", 3);
+        if_kw_instruction_then_return(TOKEN_KW_MOV, "mov", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ADD, "add", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ADC, "adc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_SUB, "sub", 3);
+        if_kw_instruction_then_return(TOKEN_KW_SBB, "sbb", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ANA, "ana", 3);
+        if_kw_instruction_then_return(TOKEN_KW_XRA, "xra", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ORA, "ora", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CMP, "cmp", 3);
+        if_kw_instruction_then_return(TOKEN_KW_INR, "inr", 3);
+        if_kw_instruction_then_return(TOKEN_KW_DCR, "dcr", 3);
+        if_kw_instruction_then_return(TOKEN_KW_INX, "inx", 3);
+        if_kw_instruction_then_return(TOKEN_KW_DCX, "dcx", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RLC, "rlc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RRC, "rrc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RAL, "ral", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RAR, "rar", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CMA, "cma", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CMC, "cmc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_STC, "stc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RET, "ret", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RNC, "rnc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RNZ, "rnz", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RPO, "rpo", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RPE, "rpe", 3);
+        if_kw_instruction_then_return(TOKEN_KW_JMP, "jmp", 3);
+        if_kw_instruction_then_return(TOKEN_KW_JNC, "jnc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_JNZ, "jnz", 3);
+        if_kw_instruction_then_return(TOKEN_KW_JPO, "jpo", 3);
+        if_kw_instruction_then_return(TOKEN_KW_JPE, "jpe", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CNC, "cnc", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CNZ, "cnz", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CPO, "cpo", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CPE, "cpe", 3);
+        if_kw_instruction_then_return(TOKEN_KW_STA, "sta", 3);
+        if_kw_instruction_then_return(TOKEN_KW_LDA, "lda", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ADI, "adi", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ACI, "aci", 3);
+        if_kw_instruction_then_return(TOKEN_KW_SUI, "sui", 3);
+        if_kw_instruction_then_return(TOKEN_KW_SBI, "sbi", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ANI, "ani", 3);
+        if_kw_instruction_then_return(TOKEN_KW_XRI, "xri", 3);
+        if_kw_instruction_then_return(TOKEN_KW_ORI, "ori", 3);
+        if_kw_instruction_then_return(TOKEN_KW_CPI, "cpi", 3);
+        if_kw_instruction_then_return(TOKEN_KW_MVI, "mvi", 3);
+        if_kw_instruction_then_return(TOKEN_KW_POP, "pop", 3);
+        if_kw_instruction_then_return(TOKEN_KW_RST, "rst", 3);
+        if_kw_instruction_then_return(TOKEN_KW_DAD, "dad", 3);
+        break;
+
+    case 4:
+        if_kw_instruction_then_return(TOKEN_KW_CALL, "call", 4);
+        if_kw_instruction_then_return(TOKEN_KW_SHLD, "shld", 4);
+        if_kw_instruction_then_return(TOKEN_KW_LHLD, "lhld", 4);
+        if_kw_instruction_then_return(TOKEN_KW_LDAX, "ldax", 4);
+        if_kw_instruction_then_return(TOKEN_KW_PUSH, "push", 4);
+        if_kw_instruction_then_return(TOKEN_KW_PCHL, "pchl", 4);
+        if_kw_instruction_then_return(TOKEN_KW_XTHL, "xthl", 4);
+        break;
+    }
+#undef if_keyword_return
+
     return make_token(text, text_length, TOKEN_IDENTIFIER, pos, l->line_start);
 }
 
-static TOKEN scan_punctuation(Lexer *l) {
-    TOKEN_Kind kind;
+static Token scan_punctuation(Lexer *l) {
+    Token_Kind kind;
     char *save = l->curr;
-    TOKEN_Pos pos = current_pos(l);
+    Token_Pos pos = current_pos(l);
 
     switch (l->current_char) {
     case ',': kind = TOKEN_COMMA; break;
@@ -273,7 +450,7 @@ static Lexer *make_lexer(String *source_string) {
     return l;
 }
 
-static TOKEN lexer_next_token(Lexer *l) {
+static Token lexer_next_token(Lexer *l) {
     Debug_Assert(!l->exhausted);
 
     skip_whitespaces(l);
@@ -314,9 +491,9 @@ static TOKEN lexer_next_token(Lexer *l) {
     return make_token(l->curr, 3, TOKEN_END_OF_FILE, current_pos(l), l->line_start);
 }
 
-static Array(TOKEN) slurp_tokens(Lexer *l) {
-    TOKEN tok;
-    Array(TOKEN) tokens;
+static Array(Token) slurp_tokens(Lexer *l) {
+    Token tok;
+    Array(Token) tokens;
 
     init_array(tokens);
 
@@ -335,8 +512,8 @@ typedef struct Parser Parser;
 struct Parser {
     char *filepath; /* source filepath */
 
-    Array(TOKEN) tokens;
-    TOKEN *current_token;
+    Array(Token) tokens;
+    Token *current_token;
     usize current_token_idx;
 
     int error_count;
@@ -348,7 +525,7 @@ static void parser_next_token(Parser *p) {
     p->current_token = &p->tokens[p->current_token_idx];
 }
 
-static TOKEN *parser_peek_next(Parser *p) {
+static Token *parser_peek_next(Parser *p) {
     if (p->current_token_idx + 1 >= array_length(p->tokens)) return NULL;
 
     return &p->tokens[p->current_token_idx + 1];
@@ -375,7 +552,7 @@ static void free_parser(Parser *p) {
 // --------------------------------------------------------------------------
 //                          - Error Printing -
 // --------------------------------------------------------------------------
-static void parser_log_error(Parser *p, TOKEN *faulty_token, char *prefix, char *msg, ...) {
+static void parser_log_error(Parser *p, Token *faulty_token, char *prefix, char *msg, ...) {
     va_list ap;
     va_start(ap, msg);
     fprintf(stderr, "%s:%zu:%zu: %s: ", p->filepath, faulty_token->pos.row, faulty_token->pos.col,
@@ -395,8 +572,8 @@ static void parser_log_error(Parser *p, TOKEN *faulty_token, char *prefix, char 
     p->error_count += 1;
 }
 
-static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
-    TOKEN *n = parser_peek_next(p);
+static void parser_expect_next(Parser *p, Token_Kind kind) {
+    Token *n = parser_peek_next(p);
     Assert(n);
 
     if (n && n->kind == kind) {
@@ -428,7 +605,7 @@ static void parser_expect_next(Parser *p, TOKEN_Kind kind) {
 
 typedef struct Label Label;
 struct Label {
-    TOKEN token;
+    Token token;
     String name;
     u16 offset;
 };
@@ -483,7 +660,7 @@ Label *assemblar_find_label(Assemblar *as, char *label_name, usize len) {
     return NULL;
 }
 
-void assemblar_insert_label(Assemblar *as, TOKEN token, u16 offset) {
+void assemblar_insert_label(Assemblar *as, Token token, u16 offset) {
     Label label = (Label){
         .token = token, .name = make_string(token.text, token.text_length), .offset = offset};
     array_push(as->label_table, label);
@@ -716,13 +893,9 @@ static void emit_lxi_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE, u8
     }
 }
 
-static char const *label_name_not_allowed_lowercase[] = {
-    "mov",
-};
-
 void assemblar_emit_object_code(Assemblar *as) {
     Parser *parser = make_parser(as->source_filepath, &as->source_string);
-    TOKEN *next = parser_peek_next(parser);
+    Token *next = parser_peek_next(parser);
 
     while (next && next->kind != TOKEN_END_OF_FILE) {
 #define match_current(cstring)                                                                     \
@@ -730,278 +903,202 @@ void assemblar_emit_object_code(Assemblar *as) {
 
         parser_next_token(parser);
 
-        if (parser->current_token->kind == TOKEN_IDENTIFIER) {
+        switch (parser->current_token->kind) {
+        /* label */
+        case TOKEN_IDENTIFIER:
             next = parser_peek_next(parser);
-
-            /* label */
             if (next && next->kind == TOKEN_COLON) {
                 assemblar_insert_label(as, *parser->current_token, as->current_address);
                 parser_next_token(parser);
-            } else {
-                /* halt */
-                if (match_current("hlt")) {
-                    emit_byte(as, 0x76);
-                }
-
-                /* start: Mov instruction */
-                else if (match_current("mov")) {
-                    parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-                    if (match_current("a")) {
-                        emit_mov_ins(as, parser, 0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e);
-                    } else if (match_current("b")) {
-
-                        emit_mov_ins(as, parser, 0x47, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46);
-                    } else if (match_current("c")) {
-                        emit_mov_ins(as, parser, 0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e);
-                    } else if (match_current("d")) {
-                        emit_mov_ins(as, parser, 0x57, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56);
-                    } else if (match_current("e")) {
-                        emit_mov_ins(as, parser, 0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e);
-                    } else if (match_current("h")) {
-                        emit_mov_ins(as, parser, 0x67, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66);
-                    } else if (match_current("l")) {
-                        emit_mov_ins(as, parser, 0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e);
-                    } else if (match_current("m")) {
-                        parser_expect_next(parser, TOKEN_COMMA);
-                        parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-                        if (match_current("a"))
-                            emit_byte(as, 0x77);
-                        else if (match_current("b"))
-                            emit_byte(as, 0x70);
-                        else if (match_current("c"))
-                            emit_byte(as, 0x71);
-                        else if (match_current("d"))
-                            emit_byte(as, 0x72);
-                        else if (match_current("e"))
-                            emit_byte(as, 0x73);
-                        else if (match_current("h"))
-                            emit_byte(as, 0x74);
-                        else if (match_current("l"))
-                            emit_byte(as, 0x75);
-                        else
-                            parser_log_error_expected_register(parser, a b c d e h l);
-                    }
-                }
-                /* end: Mov instruction */
-
-                /* start: instructions with single register operand */
-                else if (match_current("add"))
-                    emit_ins_with_one_reg(as, parser, 0x87, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85,
-                                          0x86);
-                else if (match_current("adc"))
-                    emit_ins_with_one_reg(as, parser, 0x8f, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d,
-                                          0x8e);
-                else if (match_current("sub"))
-                    emit_ins_with_one_reg(as, parser, 0x87, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95,
-                                          0x96);
-                else if (match_current("sbb"))
-                    emit_ins_with_one_reg(as, parser, 0x9f, 0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d,
-                                          0x9e);
-                else if (match_current("ana"))
-                    emit_ins_with_one_reg(as, parser, 0xa7, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5,
-                                          0xa6);
-                else if (match_current("xra"))
-                    emit_ins_with_one_reg(as, parser, 0xaf, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad,
-                                          0xae);
-                else if (match_current("ora"))
-                    emit_ins_with_one_reg(as, parser, 0xb7, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5,
-                                          0xb6);
-                else if (match_current("cmp"))
-                    emit_ins_with_one_reg(as, parser, 0xbf, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd,
-                                          0xbe);
-                else if (match_current("inr"))
-                    emit_ins_with_one_reg(as, parser, 0x3c, 0x04, 0x0c, 0x14, 0x1c, 0x24, 0x2c,
-                                          0x34);
-                else if (match_current("dcr"))
-                    emit_ins_with_one_reg(as, parser, 0x3d, 0x05, 0x0d, 0x15, 0x1d, 0x25, 0x2d,
-                                          0x35);
-                /* end: instructions with single register operand */
-
-                /* start: instruction with register pairs */
-                else if (match_current("inx"))
-                    emit_ins_with_rp(as, parser, 0x03, 0x13, 0x23, 0x33);
-                else if (match_current("dcx"))
-                    emit_ins_with_rp(as, parser, 0x0b, 0x1b, 0x2b, 0x3b);
-                else if (match_current("dad"))
-                    emit_ins_with_rp(as, parser, 0x09, 0x19, 0x29, 0x39);
-                /* end: instruction with register pairs */
-
-                /* start: rotation instructions */
-                else if (match_current("rlc"))
-                    emit_byte(as, 0x07);
-                else if (match_current("rrc"))
-                    emit_byte(as, 0x0f);
-                else if (match_current("ral"))
-                    emit_byte(as, 0x17);
-                else if (match_current("rar"))
-                    emit_byte(as, 0x1f);
-                /* end: rotation instructions */
-
-                else if (match_current("cma")) /* cma instruction */
-                    emit_byte(as, 0x2f);
-
-                /* start: carry instructions */
-                else if (match_current("cmc"))
-                    emit_byte(as, 0x3f);
-                else if (match_current("stc"))
-                    emit_byte(as, 0x37);
-                /* end: carry instructions */
-
-                /* start: return instructions */
-                else if (match_current("ret"))
-                    emit_byte(as, 0xc9);
-                else if (match_current("rz"))
-                    emit_byte(as, 0xc8);
-                else if (match_current("rnz"))
-                    emit_byte(as, 0xc0);
-                else if (match_current("rc"))
-                    emit_byte(as, 0xd8);
-                else if (match_current("rnc"))
-                    emit_byte(as, 0xd0);
-                else if (match_current("rpo"))
-                    emit_byte(as, 0xe0);
-                else if (match_current("rpe"))
-                    emit_byte(as, 0xe8);
-                /* end: return instructions */
-
-                /* start: jump instructions */
-                else if (match_current("jmp"))
-                    emit_ins_with_addr(as, parser, 0xc3);
-                else if (match_current("jc"))
-                    emit_ins_with_addr(as, parser, 0xda);
-                else if (match_current("jnc"))
-                    emit_ins_with_addr(as, parser, 0xd2);
-                else if (match_current("jz"))
-                    emit_ins_with_addr(as, parser, 0xca);
-                else if (match_current("jnz"))
-                    emit_ins_with_addr(as, parser, 0xc2);
-                else if (match_current("jpo"))
-                    emit_ins_with_addr(as, parser, 0xe2);
-                else if (match_current("jpe"))
-                    emit_ins_with_addr(as, parser, 0xea);
-                else if (match_current("jp"))
-                    emit_ins_with_addr(as, parser, 0xf2);
-                else if (match_current("jm"))
-                    emit_ins_with_addr(as, parser, 0xfa);
-                /* end: jump instructions */
-
-                /* start: call instructions */
-                else if (match_current("call"))
-                    emit_ins_with_addr(as, parser, 0xcd);
-                else if (match_current("cc"))
-                    emit_ins_with_addr(as, parser, 0xdc);
-                else if (match_current("cnc"))
-                    emit_ins_with_addr(as, parser, 0xd4);
-                else if (match_current("cz"))
-                    emit_ins_with_addr(as, parser, 0xcc);
-                else if (match_current("cnz"))
-                    emit_ins_with_addr(as, parser, 0xc4);
-                else if (match_current("cpo"))
-                    emit_ins_with_addr(as, parser, 0xe4);
-                else if (match_current("cpe"))
-                    emit_ins_with_addr(as, parser, 0xec);
-                else if (match_current("cp"))
-                    emit_ins_with_addr(as, parser, 0xf4);
-                else if (match_current("cm"))
-                    emit_ins_with_addr(as, parser, 0xfc);
-                /* end: call instructions */
-
-                /* start: store/load instructions */
-                else if (match_current("shld")) /* shld */
-                    emit_ins_with_addr(as, parser, 0x22);
-                else if (match_current("lhld")) /* lhld */
-                    emit_ins_with_addr(as, parser, 0x28);
-                else if (match_current("sta")) /* sta */
-                    emit_ins_with_addr(as, parser, 0x32);
-                else if (match_current("lda")) /* lda */
-                    emit_ins_with_addr(as, parser, 0x3a);
-                else if (match_current("ldax")) /* ldax */
-                    emit_ldax_ins(as, parser, 0x0a, 0x1a);
-                else if (match_current("lxi")) /* lxi */
-                    emit_lxi_ins(as, parser, 0x01, 0x11, 0x21, 0x31);
-                /* end: store/load instructions */
-
-                /* start: 1 byte instructions with 8-bit immediate data */
-                else if (match_current("adi")) /* adi */
-                    emit_ins_with_imm_byte(as, parser, 0xc6);
-                else if (match_current("aci")) /* aci */
-                    emit_ins_with_imm_byte(as, parser, 0xce);
-                else if (match_current("sui")) /* sui */
-                    emit_ins_with_imm_byte(as, parser, 0xd6);
-                else if (match_current("sbi")) /* sbi */
-                    emit_ins_with_imm_byte(as, parser, 0xde);
-                else if (match_current("ani")) /* ani */
-                    emit_ins_with_imm_byte(as, parser, 0xe6);
-                else if (match_current("xri")) /* xri */
-                    emit_ins_with_imm_byte(as, parser, 0xee);
-                else if (match_current("ori")) /* ori */
-                    emit_ins_with_imm_byte(as, parser, 0xf6);
-                else if (match_current("cpi")) /* cpi */
-                    emit_ins_with_imm_byte(as, parser, 0xfe);
-                else if (match_current("out")) /* out */
-                    emit_ins_with_imm_byte(as, parser, 0x3a);
-                else if (match_current("in")) /* in */
-                    emit_ins_with_imm_byte(as, parser, 0x3a);
-                /* end: 1 byte instructions with 8-bit immediate data */
-
-                /* start: mvi instruction */
-                else if (match_current("mvi")) {
-                    parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-                    if (match_current("a"))
-                        emit_mvi_ins(as, parser, 0x3e);
-                    else if (match_current("b"))
-                        emit_mvi_ins(as, parser, 0x06);
-                    else if (match_current("c"))
-                        emit_mvi_ins(as, parser, 0x0e);
-                    else if (match_current("d"))
-                        emit_mvi_ins(as, parser, 0x16);
-                    else if (match_current("e"))
-                        emit_mvi_ins(as, parser, 0x1e);
-                    else if (match_current("h"))
-                        emit_mvi_ins(as, parser, 0x26);
-                    else if (match_current("l"))
-                        emit_mvi_ins(as, parser, 0x2e);
-                    else if (match_current("m"))
-                        emit_mvi_ins(as, parser, 0x36);
-                    else {
-                        parser_log_error_expected_register(parser, a b c d e h l m);
-                    }
-                }
-                /* end: mvi instruction */
-
-                /* start: stack instruction */
-                else if (match_current("push"))
-                    emit_stack_op_ins(as, parser, 0xc5, 0xd5, 0xe5, 0xf5);
-                else if (match_current("pop"))
-                    emit_stack_op_ins(as, parser, 0xc1, 0xd1, 0xe1, 0xf1);
-                else if (match_current("pchl"))
-                    emit_byte(as, 0xe9);
-                else if (match_current("xthl"))
-                    emit_byte(as, 0xe3);
-                /* end: stack instruction */
-
-                /* start: RST instructions */
-                else if (match_current("rst"))
-                    emit_rst_ins(as, parser, 0xc7, 0xcf, 0xd7, 0xdf, 0xe7, 0xef, 0xf7, 0xff);
-                /* end: RST instructions */
-
-                /* start: Interrupt Enable/Disable instructions */
-                else if (match_current("ei"))
-                    emit_byte(as, 0xfb);
-                else if (match_current("di"))
-                    emit_byte(as, 0xf3);
-                /* end: Interrupt Enable/Disable instructions */
-
-                /* Last error */
-                else {
-                    parser_log_error(
-                        parser, parser->current_token, "Error", "Unknown Instruction '%.*s' ",
-                        parser->current_token->text_length, parser->current_token->text);
-                }
             }
+            break;
+
+        case TOKEN_KW_HLT: emit_byte(as, 0x76); break;
+
+        case TOKEN_KW_MOV:
+            parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+            if (match_current("a")) {
+                emit_mov_ins(as, parser, 0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e);
+            } else if (match_current("b")) {
+
+                emit_mov_ins(as, parser, 0x47, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46);
+            } else if (match_current("c")) {
+                emit_mov_ins(as, parser, 0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e);
+            } else if (match_current("d")) {
+                emit_mov_ins(as, parser, 0x57, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56);
+            } else if (match_current("e")) {
+                emit_mov_ins(as, parser, 0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e);
+            } else if (match_current("h")) {
+                emit_mov_ins(as, parser, 0x67, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66);
+            } else if (match_current("l")) {
+                emit_mov_ins(as, parser, 0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e);
+            } else if (match_current("m")) {
+                parser_expect_next(parser, TOKEN_COMMA);
+                parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+                if (match_current("a"))
+                    emit_byte(as, 0x77);
+                else if (match_current("b"))
+                    emit_byte(as, 0x70);
+                else if (match_current("c"))
+                    emit_byte(as, 0x71);
+                else if (match_current("d"))
+                    emit_byte(as, 0x72);
+                else if (match_current("e"))
+                    emit_byte(as, 0x73);
+                else if (match_current("h"))
+                    emit_byte(as, 0x74);
+                else if (match_current("l"))
+                    emit_byte(as, 0x75);
+                else
+                    parser_log_error_expected_register(parser, a b c d e h l);
+            }
+            break;
+
+        /* instructions with single register operand */
+        case TOKEN_KW_ADD:
+            emit_ins_with_one_reg(as, parser, 0x87, 0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86);
+            break;
+        case TOKEN_KW_ADC:
+            emit_ins_with_one_reg(as, parser, 0x8f, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e);
+            break;
+        case TOKEN_KW_SUB:
+            emit_ins_with_one_reg(as, parser, 0x87, 0x90, 0x91, 0x92, 0x93, 0x94, 0x95, 0x96);
+            break;
+        case TOKEN_KW_SBB:
+            emit_ins_with_one_reg(as, parser, 0x9f, 0x98, 0x99, 0x9a, 0x9b, 0x9c, 0x9d, 0x9e);
+            break;
+        case TOKEN_KW_ANA:
+            emit_ins_with_one_reg(as, parser, 0xa7, 0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6);
+            break;
+        case TOKEN_KW_XRA:
+            emit_ins_with_one_reg(as, parser, 0xaf, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae);
+            break;
+        case TOKEN_KW_ORA:
+            emit_ins_with_one_reg(as, parser, 0xb7, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4, 0xb5, 0xb6);
+            break;
+        case TOKEN_KW_CMP:
+            emit_ins_with_one_reg(as, parser, 0xbf, 0xb8, 0xb9, 0xba, 0xbb, 0xbc, 0xbd, 0xbe);
+            break;
+        case TOKEN_KW_INR:
+            emit_ins_with_one_reg(as, parser, 0x3c, 0x04, 0x0c, 0x14, 0x1c, 0x24, 0x2c, 0x34);
+            break;
+        case TOKEN_KW_DCR:
+            emit_ins_with_one_reg(as, parser, 0x3d, 0x05, 0x0d, 0x15, 0x1d, 0x25, 0x2d, 0x35);
+            break;
+
+        /* instruction with register pairs */
+        case TOKEN_KW_INX: emit_ins_with_rp(as, parser, 0x03, 0x13, 0x23, 0x33); break;
+        case TOKEN_KW_DCX: emit_ins_with_rp(as, parser, 0x0b, 0x1b, 0x2b, 0x3b); break;
+        case TOKEN_KW_DAD: emit_ins_with_rp(as, parser, 0x09, 0x19, 0x29, 0x39); break;
+
+        /* rotation instructions */
+        case TOKEN_KW_RLC: emit_byte(as, 0x07); break;
+        case TOKEN_KW_RRC: emit_byte(as, 0x0f); break;
+        case TOKEN_KW_RAL: emit_byte(as, 0x17); break;
+        case TOKEN_KW_RAR: emit_byte(as, 0x1f); break;
+
+        case TOKEN_KW_CMA: emit_byte(as, 0x2f); break;
+
+        /* carry instructions */
+        case TOKEN_KW_CMC: emit_byte(as, 0x3f); break;
+        case TOKEN_KW_STC: emit_byte(as, 0x37); break;
+
+        /* return instructions */
+        case TOKEN_KW_RET: emit_byte(as, 0xc9); break;
+        case TOKEN_KW_RZ: emit_byte(as, 0xc8); break;
+        case TOKEN_KW_RNZ: emit_byte(as, 0xc0); break;
+        case TOKEN_KW_RC: emit_byte(as, 0xd8); break;
+        case TOKEN_KW_RNC: emit_byte(as, 0xd0); break;
+        case TOKEN_KW_RPO: emit_byte(as, 0xe0); break;
+        case TOKEN_KW_RPE: emit_byte(as, 0xe8); break;
+
+        /* jump instructions */
+        case TOKEN_KW_JMP: emit_ins_with_addr(as, parser, 0xc3); break;
+        case TOKEN_KW_JC: emit_ins_with_addr(as, parser, 0xda); break;
+        case TOKEN_KW_JNC: emit_ins_with_addr(as, parser, 0xd2); break;
+        case TOKEN_KW_JZ: emit_ins_with_addr(as, parser, 0xca); break;
+        case TOKEN_KW_JNZ: emit_ins_with_addr(as, parser, 0xc2); break;
+        case TOKEN_KW_JPO: emit_ins_with_addr(as, parser, 0xe2); break;
+        case TOKEN_KW_JPE: emit_ins_with_addr(as, parser, 0xea); break;
+        case TOKEN_KW_JP: emit_ins_with_addr(as, parser, 0xf2); break;
+        case TOKEN_KW_JM: emit_ins_with_addr(as, parser, 0xfa); break;
+
+        /* call instructions */
+        case TOKEN_KW_CALL: emit_ins_with_addr(as, parser, 0xcd); break;
+        case TOKEN_KW_CC: emit_ins_with_addr(as, parser, 0xdc); break;
+        case TOKEN_KW_CNC: emit_ins_with_addr(as, parser, 0xd4); break;
+        case TOKEN_KW_CZ: emit_ins_with_addr(as, parser, 0xcc); break;
+        case TOKEN_KW_CNZ: emit_ins_with_addr(as, parser, 0xc4); break;
+        case TOKEN_KW_CPO: emit_ins_with_addr(as, parser, 0xe4); break;
+        case TOKEN_KW_CPE: emit_ins_with_addr(as, parser, 0xec); break;
+        case TOKEN_KW_CP: emit_ins_with_addr(as, parser, 0xf4); break;
+        case TOKEN_KW_CM: emit_ins_with_addr(as, parser, 0xfc); break;
+
+        /* store/load instructions */
+        case TOKEN_KW_SHLD: emit_ins_with_addr(as, parser, 0x22); break;
+        case TOKEN_KW_LHLD: emit_ins_with_addr(as, parser, 0x28); break;
+        case TOKEN_KW_STA: emit_ins_with_addr(as, parser, 0x32); break;
+        case TOKEN_KW_LDA: emit_ins_with_addr(as, parser, 0x3a); break;
+        case TOKEN_KW_LDAX: emit_ldax_ins(as, parser, 0x0a, 0x1a); break;
+        case TOKEN_KW_LXI: emit_lxi_ins(as, parser, 0x01, 0x11, 0x21, 0x31); break;
+
+        /* 1 byte instructions with 8-bit immediate data */
+        case TOKEN_KW_ADI: emit_ins_with_imm_byte(as, parser, 0xc6); break;
+        case TOKEN_KW_ACI: emit_ins_with_imm_byte(as, parser, 0xce); break;
+        case TOKEN_KW_SUI: emit_ins_with_imm_byte(as, parser, 0xd6); break;
+        case TOKEN_KW_SBI: emit_ins_with_imm_byte(as, parser, 0xde); break;
+        case TOKEN_KW_ANI: emit_ins_with_imm_byte(as, parser, 0xe6); break;
+        case TOKEN_KW_XRI: emit_ins_with_imm_byte(as, parser, 0xee); break;
+        case TOKEN_KW_ORI: emit_ins_with_imm_byte(as, parser, 0xf6); break;
+        case TOKEN_KW_CPI: emit_ins_with_imm_byte(as, parser, 0xfe); break;
+        case TOKEN_KW_OUT: emit_ins_with_imm_byte(as, parser, 0x3a); break;
+        case TOKEN_KW_IN: emit_ins_with_imm_byte(as, parser, 0x3a); break;
+
+        case TOKEN_KW_MVI:
+            parser_expect_next(parser, TOKEN_IDENTIFIER);
+
+            if (match_current("a"))
+                emit_mvi_ins(as, parser, 0x3e);
+            else if (match_current("b"))
+                emit_mvi_ins(as, parser, 0x06);
+            else if (match_current("c"))
+                emit_mvi_ins(as, parser, 0x0e);
+            else if (match_current("d"))
+                emit_mvi_ins(as, parser, 0x16);
+            else if (match_current("e"))
+                emit_mvi_ins(as, parser, 0x1e);
+            else if (match_current("h"))
+                emit_mvi_ins(as, parser, 0x26);
+            else if (match_current("l"))
+                emit_mvi_ins(as, parser, 0x2e);
+            else if (match_current("m"))
+                emit_mvi_ins(as, parser, 0x36);
+            else {
+                parser_log_error_expected_register(parser, a b c d e h l m);
+            }
+            break;
+
+        /* stack instruction */
+        case TOKEN_KW_PUSH: emit_stack_op_ins(as, parser, 0xc5, 0xd5, 0xe5, 0xf5); break;
+        case TOKEN_KW_POP: emit_stack_op_ins(as, parser, 0xc1, 0xd1, 0xe1, 0xf1); break;
+        case TOKEN_KW_PCHL: emit_byte(as, 0xe9); break;
+        case TOKEN_KW_XTHL: emit_byte(as, 0xe3); break;
+
+        /* RST instructions */
+        case TOKEN_KW_RST:
+            emit_rst_ins(as, parser, 0xc7, 0xcf, 0xd7, 0xdf, 0xe7, 0xef, 0xf7, 0xff);
+            break;
+
+        /* Interrupt Enable/Disable instructions */
+        case TOKEN_KW_EI: emit_byte(as, 0xfb); break;
+        case TOKEN_KW_DI: emit_byte(as, 0xf3); break;
+
+        /* Last error */
+        default:
+            parser_log_error(parser, parser->current_token, "Error", "Unknown Instruction '%.*s' ",
+                             parser->current_token->text_length, parser->current_token->text);
         }
 
         next = parser_peek_next(parser);

@@ -49,6 +49,14 @@ bool is_alphanumeric(int ch) {
     return ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9'));
 }
 
+int to_lowercase(int ch) {
+    return (ch >= 'A' && ch <= 'Z') ? ch + 32 : ch;
+}
+
+int to_uppercase(int ch) {
+    return (ch >= 'a' && ch <= 'z') ? ch - 32 : ch;
+}
+
 f64 base2_to_f64(char *str, usize length) {
     f64 result = 0;
 
