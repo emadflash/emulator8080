@@ -52,7 +52,6 @@ bool is_alphanumeric(int ch) {
 int to_lowercase(int ch) {
     return (ch >= 'A' && ch <= 'Z') ? ch + 32 : ch;
 }
-
 int to_uppercase(int ch) {
     return (ch >= 'a' && ch <= 'z') ? ch - 32 : ch;
 }

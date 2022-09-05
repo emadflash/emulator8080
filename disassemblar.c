@@ -476,23 +476,22 @@ void disassemble(Cpu *cpu) {
             break; // XTHL
 
         /* Dad */
-        case 0x09: disassemblar_pretty_print_ins(cpu, 1, "DAD BC"); break; // DAD BC
-        case 0x19: disassemblar_pretty_print_ins(cpu, 1, "DAD DE"); break; // DAD DE
-        case 0x29: disassemblar_pretty_print_ins(cpu, 1, "DAD HL"); break; // DAD HL
-        case 0x39: disassemblar_pretty_print_ins(cpu, 1, "DAD SP"); break; // DAD SP
+        case 0x09: disassemblar_pretty_print_ins(cpu, 1, "dad BC"); break; // DAD BC
+        case 0x19: disassemblar_pretty_print_ins(cpu, 1, "dad DE"); break; // DAD DE
+        case 0x29: disassemblar_pretty_print_ins(cpu, 1, "dad HL"); break; // DAD HL
+        case 0x39: disassemblar_pretty_print_ins(cpu, 1, "dad SP"); break; // DAD SP
 
         case 0xdb:
-            disassemblar_pretty_print_ins(cpu, 2, "IN 0x%x", cpu_fetch_next_byte(cpu));
+            disassemblar_pretty_print_ins(cpu, 2, "in 0x%x", cpu_fetch_next_byte(cpu));
             break; // IN [D8]
         case 0xd3:
-            disassemblar_pretty_print_ins(cpu, 2, "OUT 0x%x", cpu_fetch_next_byte(cpu));
-            break;                                                     // OUT [D8]
-        case 0xfb: disassemblar_pretty_print_ins(cpu, 1, "EI"); break; // EI
-        case 0xf3: disassemblar_pretty_print_ins(cpu, 1, "DI"); break; // DI
-        case 0x27:
-            disassemblar_pretty_print_ins(cpu, 1, "DAA");
-            break; // DAA
-                   //
+            disassemblar_pretty_print_ins(cpu, 2, "out 0x%x", cpu_fetch_next_byte(cpu));
+            break; // OUT [D8]
+
+        case 0xfb: disassemblar_pretty_print_ins(cpu, 1, "ei"); break;  // EI
+        case 0xf3: disassemblar_pretty_print_ins(cpu, 1, "di"); break;  // DI
+        case 0x27: disassemblar_pretty_print_ins(cpu, 1, "DAA"); break; // DAA
+
         default: Todo_Message("Unimplemented: 0x%x", opcode);
         }
 

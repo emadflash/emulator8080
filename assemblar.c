@@ -76,6 +76,7 @@
     TOKEN_KIND(TOKEN_KW_STA, "Sta")                                                                \
     TOKEN_KIND(TOKEN_KW_LDA, "Lda")                                                                \
     TOKEN_KIND(TOKEN_KW_LDAX, "Ldax")                                                              \
+    TOKEN_KIND(TOKEN_KW_STAX, "Stax")                                                              \
     TOKEN_KIND(TOKEN_KW_LXI, "Lxi")                                                                \
     TOKEN_KIND(TOKEN_KW_ADI, "Adi")                                                                \
     TOKEN_KIND(TOKEN_KW_ACI, "Aci")                                                                \
@@ -395,6 +396,7 @@ static Token scan_iden(Lexer *l) {
         if_kw_instruction_then_return(TOKEN_KW_POP, "pop", 3);
         if_kw_instruction_then_return(TOKEN_KW_RST, "rst", 3);
         if_kw_instruction_then_return(TOKEN_KW_DAD, "dad", 3);
+        if_kw_instruction_then_return(TOKEN_KW_LXI, "lxi", 3);
         break;
 
     case 4:
@@ -402,6 +404,7 @@ static Token scan_iden(Lexer *l) {
         if_kw_instruction_then_return(TOKEN_KW_SHLD, "shld", 4);
         if_kw_instruction_then_return(TOKEN_KW_LHLD, "lhld", 4);
         if_kw_instruction_then_return(TOKEN_KW_LDAX, "ldax", 4);
+        if_kw_instruction_then_return(TOKEN_KW_STAX, "stax", 4);
         if_kw_instruction_then_return(TOKEN_KW_PUSH, "push", 4);
         if_kw_instruction_then_return(TOKEN_KW_PCHL, "pchl", 4);
         if_kw_instruction_then_return(TOKEN_KW_XTHL, "xthl", 4);
@@ -585,8 +588,27 @@ static void parser_expect_next(Parser *p, Token_Kind kind) {
     }
 }
 
-#define parser_match_current(parser, cstring)                                                      \
-    are_cstrings_equal(cstring, parser->current_token->text, parser->current_token->text_length)
+bool parser_is_current_general_reg(Parser *parser, char general_reg) {
+    if (parser->current_token->text_length > 1) return false;
+    return cast(bool)(general_reg == to_lowercase(*parser->current_token->text));
+}
+
+bool parser_is_current_special_reg(Parser *parser, char *special_reg, u8 len) {
+    if (parser->current_token->text_length != len) return false;
+    switch (len) {
+    case 3:
+        if (special_reg[2] != parser->current_token->text[2]) return false;
+
+    case 2:
+        if (special_reg[0] != parser->current_token->text[0]) return false;
+        if (special_reg[1] != parser->current_token->text[1]) return false;
+        break;
+
+    default: Unreachable();
+    }
+
+    return true;
+}
 
 /* parser error abstraction */
 #define parser_log_error_expected_register(p, registers)                                           \
@@ -688,21 +710,21 @@ static void emit_ins_with_one_reg(Assemblar *as, Parser *parser, u8 byteWithA, u
         return;
     }
 
-    if (parser_match_current(parser, "a"))
+    if (parser_is_current_general_reg(parser, 'a'))
         emit_byte(as, byteWithA);
-    else if (parser_match_current(parser, "b"))
+    else if (parser_is_current_general_reg(parser, 'b'))
         emit_byte(as, byteB);
-    else if (parser_match_current(parser, "c"))
+    else if (parser_is_current_general_reg(parser, 'c'))
         emit_byte(as, byteC);
-    else if (parser_match_current(parser, "d"))
+    else if (parser_is_current_general_reg(parser, 'd'))
         emit_byte(as, byteD);
-    else if (parser_match_current(parser, "e"))
+    else if (parser_is_current_general_reg(parser, 'e'))
         emit_byte(as, byteE);
-    else if (parser_match_current(parser, "h"))
+    else if (parser_is_current_general_reg(parser, 'h'))
         emit_byte(as, byteH);
-    else if (parser_match_current(parser, "l"))
+    else if (parser_is_current_general_reg(parser, 'l'))
         emit_byte(as, byteL);
-    else if (parser_match_current(parser, "m"))
+    else if (parser_is_current_general_reg(parser, 'm'))
         emit_byte(as, byteM);
     else {
         parser_log_error_expected_register(parser, a b c d e h l m);
@@ -717,13 +739,13 @@ static void emit_ins_with_rp(Assemblar *as, Parser *parser, u8 bByte, u8 dByte, 
         return;
     }
 
-    if (parser_match_current(parser, "b"))
+    if (parser_is_current_general_reg(parser, 'b'))
         emit_byte(as, bByte);
-    else if (parser_match_current(parser, "d"))
+    else if (parser_is_current_general_reg(parser, 'd'))
         emit_byte(as, dByte);
-    else if (parser_match_current(parser, "h"))
+    else if (parser_is_current_general_reg(parser, 'h'))
         emit_byte(as, hByte);
-    else if (parser_match_current(parser, "sp"))
+    else if (parser_is_current_special_reg(parser, "sp", 2))
         emit_byte(as, spByte);
     else {
         parser_log_error_expected_register_pair(parser, b d h sp);
@@ -745,12 +767,12 @@ static bool assemblar_get_addr_operand(Assemblar *as, Parser *parser, u16 *addr)
     } else if (is_token_number(parser->current_token->kind)) {
         *addr = cast(u16) number_token_to_f64(parser->current_token);
         return true;
-    } else {
-        parser_log_error(parser, parser->current_token, "Syntax Error",
-                         "Expected address or label, instead got '%.*s'",
-                         parser->current_token->text_length, parser->current_token->text);
-        return false;
     }
+
+    parser_log_error(parser, parser->current_token, "Syntax Error",
+                     "Expected address or label, instead got '%.*s'",
+                     parser->current_token->text_length, parser->current_token->text);
+    return false;
 }
 
 static void emit_ins_with_addr(Assemblar *as, Parser *parser, u8 opByte) {
@@ -804,13 +826,13 @@ static void emit_stack_op_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteD
         return;
     }
 
-    if (parser_match_current(parser, "b"))
+    if (parser_is_current_general_reg(parser, 'b'))
         emit_byte(as, byteBC);
-    else if (parser_match_current(parser, "d"))
+    else if (parser_is_current_general_reg(parser, 'd'))
         emit_byte(as, byteDE);
-    else if (parser_match_current(parser, "h"))
+    else if (parser_is_current_general_reg(parser, 'h'))
         emit_byte(as, byteHL);
-    else if (parser_match_current(parser, "psw"))
+    else if (parser_is_current_special_reg(parser, "psw", 3))
         emit_byte(as, bytePSW);
     else
         parser_log_error_expected_register_pair(parser, b d h PSW);
@@ -847,9 +869,9 @@ static void emit_rst_ins(Assemblar *as, Parser *parser, u8 byte0, u8 byte1, u8 b
 static void emit_ldax_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE) {
     parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-    if (parser_match_current(parser, "b"))
+    if (parser_is_current_general_reg(parser, 'b'))
         emit_byte(as, byteBC);
-    else if (parser_match_current(parser, "d"))
+    else if (parser_is_current_general_reg(parser, 'd'))
         emit_byte(as, byteDE);
     else {
         parser_log_error_expected_register_pair(parser, b d h);
@@ -865,13 +887,13 @@ static void emit_lxi_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE, u8
         has_error = true;
         parser_log_error_expected_register_pair(parser, b d h);
     } else {
-        if (parser_match_current(parser, "b"))
+        if (parser_is_current_general_reg(parser, 'b'))
             emit_byte(as, byteBC);
-        else if (parser_match_current(parser, "d"))
+        else if (parser_is_current_general_reg(parser, 'd'))
             emit_byte(as, byteDE);
-        else if (parser_match_current(parser, "h"))
+        else if (parser_is_current_general_reg(parser, 'h'))
             emit_byte(as, byteHL);
-        else if (parser_match_current(parser, "sp"))
+        else if (parser_is_current_special_reg(parser, "sp", 2))
             emit_byte(as, byteSP);
         else {
             has_error = true;
@@ -898,18 +920,27 @@ void assemblar_emit_object_code(Assemblar *as) {
     Token *next = parser_peek_next(parser);
 
     while (next && next->kind != TOKEN_END_OF_FILE) {
-#define match_current(cstring)                                                                     \
-    are_cstrings_equal(cstring, parser->current_token->text, parser->current_token->text_length)
-
         parser_next_token(parser);
 
         switch (parser->current_token->kind) {
         /* label */
         case TOKEN_IDENTIFIER:
             next = parser_peek_next(parser);
-            if (next && next->kind == TOKEN_COLON) {
-                assemblar_insert_label(as, *parser->current_token, as->current_address);
+            if (!next) {
+                parser_log_error(parser, parser->current_token, "Error",
+                                 "Unknown parse rule '%.*s' ", parser->current_token->text_length,
+                                 parser->current_token->text);
                 parser_next_token(parser);
+            } else {
+                if (next->kind == TOKEN_COLON) {
+                    assemblar_insert_label(as, *parser->current_token, as->current_address);
+                    parser_next_token(parser);
+                } else {
+                    parser_log_error(parser, parser->current_token, "Error",
+                                     "Unknown parse rule '%.*s' ", parser->current_token->text_length,
+                                     parser->current_token->text);
+                    parser_next_token(parser);
+                }
             }
             break;
 
@@ -918,38 +949,38 @@ void assemblar_emit_object_code(Assemblar *as) {
         case TOKEN_KW_MOV:
             parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-            if (match_current("a")) {
+            if (parser_is_current_general_reg(parser, 'a')) {
                 emit_mov_ins(as, parser, 0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e);
-            } else if (match_current("b")) {
+            } else if (parser_is_current_general_reg(parser, 'b')) {
 
                 emit_mov_ins(as, parser, 0x47, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46);
-            } else if (match_current("c")) {
+            } else if (parser_is_current_general_reg(parser, 'c')) {
                 emit_mov_ins(as, parser, 0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e);
-            } else if (match_current("d")) {
+            } else if (parser_is_current_general_reg(parser, 'd')) {
                 emit_mov_ins(as, parser, 0x57, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56);
-            } else if (match_current("e")) {
+            } else if (parser_is_current_general_reg(parser, 'e')) {
                 emit_mov_ins(as, parser, 0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e);
-            } else if (match_current("h")) {
+            } else if (parser_is_current_general_reg(parser, 'h')) {
                 emit_mov_ins(as, parser, 0x67, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66);
-            } else if (match_current("l")) {
+            } else if (parser_is_current_general_reg(parser, 'l')) {
                 emit_mov_ins(as, parser, 0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e);
-            } else if (match_current("m")) {
+            } else if (parser_is_current_general_reg(parser, 'm')) {
                 parser_expect_next(parser, TOKEN_COMMA);
                 parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-                if (match_current("a"))
+                if (parser_is_current_general_reg(parser, 'a'))
                     emit_byte(as, 0x77);
-                else if (match_current("b"))
+                else if (parser_is_current_general_reg(parser, 'b'))
                     emit_byte(as, 0x70);
-                else if (match_current("c"))
+                else if (parser_is_current_general_reg(parser, 'c'))
                     emit_byte(as, 0x71);
-                else if (match_current("d"))
+                else if (parser_is_current_general_reg(parser, 'd'))
                     emit_byte(as, 0x72);
-                else if (match_current("e"))
+                else if (parser_is_current_general_reg(parser, 'e'))
                     emit_byte(as, 0x73);
-                else if (match_current("h"))
+                else if (parser_is_current_general_reg(parser, 'h'))
                     emit_byte(as, 0x74);
-                else if (match_current("l"))
+                else if (parser_is_current_general_reg(parser, 'l'))
                     emit_byte(as, 0x75);
                 else
                     parser_log_error_expected_register(parser, a b c d e h l);
@@ -1042,6 +1073,7 @@ void assemblar_emit_object_code(Assemblar *as) {
         case TOKEN_KW_STA: emit_ins_with_addr(as, parser, 0x32); break;
         case TOKEN_KW_LDA: emit_ins_with_addr(as, parser, 0x3a); break;
         case TOKEN_KW_LDAX: emit_ldax_ins(as, parser, 0x0a, 0x1a); break;
+        case TOKEN_KW_STAX: emit_ldax_ins(as, parser, 0x02, 0x12); break;
         case TOKEN_KW_LXI: emit_lxi_ins(as, parser, 0x01, 0x11, 0x21, 0x31); break;
 
         /* 1 byte instructions with 8-bit immediate data */
@@ -1059,21 +1091,21 @@ void assemblar_emit_object_code(Assemblar *as) {
         case TOKEN_KW_MVI:
             parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-            if (match_current("a"))
+            if (parser_is_current_general_reg(parser, 'a'))
                 emit_mvi_ins(as, parser, 0x3e);
-            else if (match_current("b"))
+            else if (parser_is_current_general_reg(parser, 'b'))
                 emit_mvi_ins(as, parser, 0x06);
-            else if (match_current("c"))
+            else if (parser_is_current_general_reg(parser, 'c'))
                 emit_mvi_ins(as, parser, 0x0e);
-            else if (match_current("d"))
+            else if (parser_is_current_general_reg(parser, 'd'))
                 emit_mvi_ins(as, parser, 0x16);
-            else if (match_current("e"))
+            else if (parser_is_current_general_reg(parser, 'e'))
                 emit_mvi_ins(as, parser, 0x1e);
-            else if (match_current("h"))
+            else if (parser_is_current_general_reg(parser, 'h'))
                 emit_mvi_ins(as, parser, 0x26);
-            else if (match_current("l"))
+            else if (parser_is_current_general_reg(parser, 'l'))
                 emit_mvi_ins(as, parser, 0x2e);
-            else if (match_current("m"))
+            else if (parser_is_current_general_reg(parser, 'm'))
                 emit_mvi_ins(as, parser, 0x36);
             else {
                 parser_log_error_expected_register(parser, a b c d e h l m);
