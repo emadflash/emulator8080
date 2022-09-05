@@ -127,10 +127,16 @@ static Cli_Flag *cli_find_optional_flag(Cli *cli, char *arg_cstr) {
 void cli_show_usage_message(Cli *cli, FILE *stream) {
     Cli_Flag *temp_flag;
 
-    if (cli->has_extra_info) {
-        fprintf(stream, "%s %s\n%s\n\n", cli->program_name, cli->version, cli->program_description);
-        fprintf(stream, "%s <%s>\n\n", cli->author_name, cli->email_address);
-    }
+#ifdef CLI_MORE_INFO
+#if !defined(CLI_VERSION) || !defined(CLI_PROGRAM_DESC) ||           \
+    !defined(CLI_AUTHOR_NAME) || !defined(CLI_AUTHOR_EMAIL_ADDRESS)
+#error                                                                                             \
+    "CLI_MORE_INFO: expected CLI_VERSION, CLI_PROGRAM_DESC, CLI_AUTHOR_NAME, CLI_AUTHOR_EMAIL_ADDRESS defined"
+#else
+    fprintf(stream, "%s %s\n%s\n\n", cli->program_name, CLI_VERSION, CLI_PROGRAM_DESC);
+    fprintf(stream, "%s <%s>\n\n", CLI_AUTHOR_NAME, CLI_AUTHOR_EMAIL_ADDRESS);
+#endif
+#endif
 
     fprintf(stream, "Usage: %s ", cli->program_name);
     for (int i = 0; i < cli->positionals_count; ++i) {

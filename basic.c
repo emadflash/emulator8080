@@ -1,4 +1,4 @@
-#include "common.h"
+#include "basic.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -135,6 +135,7 @@ String make_string(char *str, usize len) {
     String s = string_reserve(len);
     memcpy(s, str, len);
     s[len] = '\0';
+    string_length(s) = len;
     return s;
 }
 
@@ -157,8 +158,16 @@ String append_string_length(String s, char *str, usize len) {
     return s;
 }
 
-bool are_equal_strings(String lhs, String rhs) {
+bool are_strings_equal(String lhs, String rhs) {
     if (string_length(lhs) != string_length(rhs)) return false;
+    string_for_each(lhs, i) {
+        if (lhs[i] != rhs[i]) return false;
+    }
+    return true;
+}
+
+bool are_strings_equal_length(String lhs, char *rhs, usize rhs_length) {
+    if (string_length(lhs) != rhs_length) return false;
     string_for_each(lhs, i) {
         if (lhs[i] != rhs[i]) return false;
     }

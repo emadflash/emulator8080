@@ -30,7 +30,7 @@ build_emulator() {
     esac
 
     set -x
-    $CC $CFLAGS $EXTRAFLAGS $LDFLAGS main.c -o $TARGET
+    $CC $CFLAGS $EXTRAFLAGS $LDFLAGS emulator.c -o $TARGET
     set +x
 }
 

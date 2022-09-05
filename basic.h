@@ -43,6 +43,7 @@ typedef int64_t i64;
 typedef float f32;
 typedef double f64;
 
+typedef unsigned int uint;
 typedef uintptr_t uintptr;
 typedef intptr_t intptr;
 
@@ -296,7 +297,8 @@ String string_reserve(usize cap);
 String make_string_empty();
 String make_string(char *str, usize len);
 String append_string_length(String s, char *str, usize len);
-bool are_equal_strings(String lhs, String rhs);
+bool are_strings_equal(String lhs, String rhs);
+bool are_strings_equal_length(String lhs, char *rhs, usize rhs_length);
 bool are_equal_cstring(String lhs, char *rhs);
 String file_as_string(char *filepath);
 

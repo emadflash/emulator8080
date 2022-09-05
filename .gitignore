@@ -6,6 +6,7 @@ i8080
 *.o
 as
 emulator8080
+assemblar8080
 log
 ins
 test.asm
