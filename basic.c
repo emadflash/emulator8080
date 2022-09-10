@@ -56,50 +56,6 @@ int to_uppercase(int ch) {
     return (ch >= 'a' && ch <= 'z') ? ch - 32 : ch;
 }
 
-f64 base2_to_f64(char *str, usize length) {
-    f64 result = 0;
-
-    for (usize i = length - 1; i > 0; --i, ++str) {
-        result += pow(2, i) * binary_digit_to_int(*str);
-    }
-
-    result += pow(2, 0) * decimal_digit_to_int(*str);
-    return result;
-}
-
-f64 base8_to_f64(char *str, usize length) {
-    f64 result = 0;
-
-    for (usize i = length - 1; i >= 0; --i, ++str) {
-        result += pow(8, i) * octal_digit_to_int(*str);
-    }
-
-    result += pow(8, 0) * decimal_digit_to_int(*str);
-    return result;
-}
-
-f64 base10_to_f64(char *str, usize length) {
-    f64 result = 0;
-
-    for (usize i = length - 1; i > 0; --i, ++str) {
-        result += pow(10, i) * decimal_digit_to_int(*str);
-    }
-
-    result += pow(10, 0) * decimal_digit_to_int(*str);
-    return result;
-}
-
-f64 base16_to_f64(char *str, usize length) {
-    f64 result = 0;
-
-    for (usize i = length - 1; i > 0; --i, ++str) {
-        result += pow(16, i) * hex_digit_to_int(*str);
-    }
-
-    result += pow(16, 0) * hex_digit_to_int(*str);
-    return result;
-}
-
 // --------------------------------------------------------------------------
 //                          - Asserts -
 // --------------------------------------------------------------------------

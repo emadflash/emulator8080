@@ -1,5 +1,5 @@
-#ifndef __common_h__
-#define __common_h__
+#ifndef __basic_h__
+#define __basic_h__
 
 #include <assert.h>
 #include <stdbool.h>
@@ -191,11 +191,6 @@ int to_uppercase(int ch);
     ((digit >= 'a' && digit <= 'f')                                                                \
          ? (digit - 'a' + 10)                                                                      \
          : ((digit >= 'A' && digit <= 'F') ? (digit - 'A' + 10) : (digit - '0')))
-
-f64 base2_to_f64(char *str, usize length);
-f64 base8_to_f64(char *str, usize length);
-f64 base10_to_f64(char *str, usize length);
-f64 base16_to_f64(char *str, usize length);
 
 // --------------------------------------------------------------------------
 //                          - Array -

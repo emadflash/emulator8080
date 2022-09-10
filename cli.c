@@ -128,8 +128,8 @@ void cli_show_usage_message(Cli *cli, FILE *stream) {
     Cli_Flag *temp_flag;
 
 #ifdef CLI_MORE_INFO
-#if !defined(CLI_VERSION) || !defined(CLI_PROGRAM_DESC) ||           \
-    !defined(CLI_AUTHOR_NAME) || !defined(CLI_AUTHOR_EMAIL_ADDRESS)
+#if !defined(CLI_VERSION) || !defined(CLI_PROGRAM_DESC) || !defined(CLI_AUTHOR_NAME) ||            \
+    !defined(CLI_AUTHOR_EMAIL_ADDRESS)
 #error                                                                                             \
     "CLI_MORE_INFO: expected CLI_VERSION, CLI_PROGRAM_DESC, CLI_AUTHOR_NAME, CLI_AUTHOR_EMAIL_ADDRESS defined"
 #else
@@ -198,7 +198,8 @@ static int cli_find_and_set_value(Cli *cli, int curr_idx, char *curr, char *flag
  *
  *   -f                 , flag_name = f, flag_value = NULL
  */
-static int split_flag_name_and_value(Cli *cli, int curr_idx, char **flag_name, char **flag_value) {
+static int split_flag_name_and_value_at_equal_sign(Cli *cli, int curr_idx, char **flag_name,
+                                                   char **flag_value) {
     char *curr = cli->argv[curr_idx];
     int dash_count = strip_dashes(&curr);
 
@@ -319,6 +320,24 @@ static void cli_report_if_missing_positionals(Cli *cli, int idx) {
     }
 }
 
+static void cli_set_found_flag_value(Cli *cli, Cli_Flag *found_flag, char *flag_name,
+                                     char *flag_value) {
+
+    switch (found_flag->type) {
+    case Cli_FlagType_Bool:
+        cli_set_value_bool(cli, found_flag->value_ref._bool, flag_name, flag_value);
+        break;
+
+    case Cli_FlagType_Int:
+        cli_set_value_integer(cli, found_flag->value_ref.integer, flag_name, flag_value);
+        break;
+
+    case Cli_FlagType_CString: *found_flag->value_ref.cstring = flag_value; break;
+
+    default: Unreachable();
+    }
+}
+
 int cli_parse_args(Cli *cli) {
     Cli_Flag *found_flag;
     char *flag_name, *flag_value;
@@ -334,29 +353,14 @@ int cli_parse_args(Cli *cli) {
             } else {
                 flag_value = cli->argv[argv_idx];
                 found_flag = &cli->positionals[positionals_idx];
-
-                switch (found_flag->type) {
-                case Cli_FlagType_Bool:
-                    cli_set_value_bool(cli, found_flag->value_ref._bool, found_flag->big_name,
-                                       flag_value);
-                    break;
-
-                case Cli_FlagType_Int:
-                    cli_set_value_integer(cli, found_flag->value_ref.integer, found_flag->big_name,
-                                          flag_value);
-                    break;
-
-                case Cli_FlagType_CString: *found_flag->value_ref.cstring = flag_value; break;
-
-                default: Unreachable();
-                }
-
+                cli_set_found_flag_value(cli, found_flag, found_flag->big_name, flag_value);
                 positionals_idx += 1;
             }
         } else { /* Flag */
             flag_name = NULL;
             flag_value = NULL;
-            argv_idx = split_flag_name_and_value(cli, argv_idx, &flag_name, &flag_value);
+            argv_idx =
+                split_flag_name_and_value_at_equal_sign(cli, argv_idx, &flag_name, &flag_value);
             found_flag = cli_find_optional_flag(cli, flag_name);
 
             if (cli_is_help_flag(flag_name, strlen(flag_name))) {
@@ -368,23 +372,16 @@ int cli_parse_args(Cli *cli) {
                 cli_report_error(cli, "error: unknown flag: %s\n", flag_name);
             } else {
                 if (found_flag->type != Cli_FlagType_Bool && !flag_value) {
-                    cli_report_error(cli, "error: expected %s for %s\n",
-                                     flag_type_to_cstring[found_flag->type], flag_name);
-                } else {
-                    switch (found_flag->type) {
-                    case Cli_FlagType_Bool:
-                        cli_set_value_bool(cli, found_flag->value_ref._bool, flag_name, flag_value);
-                        break;
-
-                    case Cli_FlagType_Int:
-                        cli_set_value_integer(cli, found_flag->value_ref.integer, flag_name,
-                                              flag_value);
-                        break;
-
-                    case Cli_FlagType_CString: *found_flag->value_ref.cstring = flag_value; break;
-
-                    default: Unreachable();
+                    if (argv_idx + 1 >= cli->argc) { // has no flag value after name
+                        cli_report_error(cli, "error: expected %s for %s\n",
+                                         flag_type_to_cstring[found_flag->type], flag_name);
+                    } else {
+                        cli_set_found_flag_value(cli, found_flag, flag_name,
+                                                 cli->argv[argv_idx + 1]);
+                        argv_idx += 1;
                     }
+                } else {
+                    cli_set_found_flag_value(cli, found_flag, flag_name, flag_value);
                 }
             }
         }

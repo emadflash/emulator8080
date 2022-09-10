@@ -13,16 +13,52 @@
 #define TOKEN_KINDS                                                                                \
     TOKEN_KIND(TOKEN_FAULTY, "Faulty token!!!")                                                    \
                                                                                                    \
-    TOKEN_KIND(TOKEN_NUMBER_DECIMAL, "decimal number")                                             \
-    TOKEN_KIND(TOKEN_NUMBER_BINARY, "binary number")                                               \
-    TOKEN_KIND(TOKEN_NUMBER_HEX, "hexadecimal number")                                             \
-    TOKEN_KIND(TOKEN_NUMBER_OCTAL, "octal number")                                                 \
-    TOKEN_KIND(TOKEN_NUMBER_FLOAT, "float number")                                                 \
+    TOKEN_TEMP(TOKEN_CONST_NUMBER__BEGIN, "number constant begin")                                 \
+    TOKEN_KIND(TOKEN_CONST_NUMBER_DECIMAL, "decimal number constant")                              \
+    TOKEN_KIND(TOKEN_CONST_NUMBER_HEX, "hex number constant")                                      \
+    TOKEN_KIND(TOKEN_CONST_NUMBER_OCTAL, "octal number constant")                                  \
+    TOKEN_KIND(TOKEN_CONST_NUMBER_BINARY, "binary number constant")                                \
+    TOKEN_KIND(TOKEN_CONST_NUMBER_FLOAT, "float number constant")                                  \
+    TOKEN_TEMP(TOKEN_CONST_NUMBER__END, "number constant end")                                     \
+                                                                                                   \
+    TOKEN_KIND(TOKEN_CONST_CHAR, "character constant")                                             \
+    TOKEN_KIND(TOKEN_CONST_STRING, "string constant")                                              \
     TOKEN_KIND(TOKEN_COMMA, "Comma")                                                               \
     TOKEN_KIND(TOKEN_COLON, "Colon")                                                               \
     TOKEN_KIND(TOKEN_SEMICOLON, "Semicolon")                                                       \
+    TOKEN_KIND(TOKEN_DOLLAR, "Dollar($) sign")                                                     \
+    TOKEN_KIND(TOKEN_LEFT_PAREN, "Left paren")                                                     \
+    TOKEN_KIND(TOKEN_RIGHT_PAREN, "Right paren")                                                   \
+    TOKEN_KIND(TOKEN_PLUS, "Plus sign")                                                            \
+    TOKEN_KIND(TOKEN_MINUS, "Minus sign")                                                          \
+    TOKEN_KIND(TOKEN_MUL, "Multiply sign")                                                         \
+    TOKEN_KIND(TOKEN_DIVIDE, "Divide sign")                                                        \
+    TOKEN_KIND(TOKEN_BITWISE_AND, "Bitwise and")                                                   \
+    TOKEN_KIND(TOKEN_BITWISE_XOR, "Bitwise xor")                                                   \
+    TOKEN_KIND(TOKEN_BITWISE_OR, "Bitwise or")                                                     \
+    TOKEN_KIND(TOKEN_BANG, "Not(!)")                                                               \
+    TOKEN_KIND(TOKEN_TILDA, "Tilda(~)")                                                            \
                                                                                                    \
     TOKEN_KIND(TOKEN_IDENTIFIER, "Identifier")                                                     \
+    TOKEN_KIND(TOKEN_KW_SET, "Set")                                                                \
+    TOKEN_KIND(TOKEN_KW_EQU, "Equ")                                                                \
+                                                                                                   \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG__BEGIN, "General purpose register begin")                      \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_A, "A")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_B, "B")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_C, "C")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_D, "D")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_E, "E")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_H, "H")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_L, "L")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG_M, "M")                                                        \
+    TOKEN_KIND(TOKEN_KW_GENERAL_REG__END, "General purpose register end")                          \
+                                                                                                   \
+    TOKEN_KIND(TOKEN_KW_SPECIAL_REG__BEGIN, "Special register begin")                              \
+    TOKEN_KIND(TOKEN_KW_SPECIAL_REG_SP, "SP")                                                      \
+    TOKEN_KIND(TOKEN_KW_SPECIAL_REG_PSW, "PSW")                                                    \
+    TOKEN_KIND(TOKEN_KW_SPECIAL_REG__END, "Special register end")                                  \
+                                                                                                   \
     TOKEN_KIND(TOKEN_KW_HLT, "Hlt")                                                                \
     TOKEN_KIND(TOKEN_KW_MOV, "Mov")                                                                \
     TOKEN_KIND(TOKEN_KW_ADD, "Add")                                                                \
@@ -98,22 +134,22 @@
     TOKEN_KIND(TOKEN_KW_DI, "Di")                                                                  \
     TOKEN_KIND(TOKEN_KW_DAD, "Dad")                                                                \
                                                                                                    \
-    TOKEN_KIND(TOKEN_END_OF_FILE, "end_of_file")                                                   \
+    TOKEN_KIND(TOKEN_END_OF_FILE, "End of file")                                                   \
     TOKEN_KIND(TOKEN_Kind_COUNT, NULL)
-
-#define is_token_number(kind)                                                                      \
-    (kind == TOKEN_NUMBER_BINARY || kind == TOKEN_NUMBER_DECIMAL || kind == TOKEN_NUMBER_OCTAL ||  \
-     kind == TOKEN_NUMBER_HEX || kind == TOKEN_NUMBER_FLOAT)
 
 typedef enum {
 #define TOKEN_KIND(kind_name, ...) kind_name,
+#define TOKEN_TEMP TOKEN_KIND
     TOKEN_KINDS
+#undef TOKEN_TEMP
 #undef TOKEN_KIND
 } Token_Kind;
 
 static char const *token_kind_to_cstring[] = {
 #define TOKEN_KIND(kind_name, cstring) [kind_name] = cstring,
+#define TOKEN_TEMP(kind_name, cstring) [kind_name] = cstring,
     TOKEN_KINDS
+#undef TOKEN_TEMP
 #undef TOKEN_KIND
 };
 
@@ -142,17 +178,67 @@ static Token make_token(char *text, size_t text_length, Token_Kind kind, Token_P
     };
 }
 
+bool is_token_number(Token *token) {
+    return (token->kind >= TOKEN_CONST_NUMBER__BEGIN && token->kind <= TOKEN_CONST_NUMBER__END);
+}
+
+f64 base2_to_f6s4(char *str, usize length) {
+    f64 result = 0;
+
+    for (usize i = length - 1; i > 0; --i, ++str) {
+        result += pow(2, i) * binary_digit_to_int(*str);
+    }
+
+    result += pow(2, 0) * decimal_digit_to_int(*str);
+    return result;
+}
+
 static f64 number_token_to_f64(Token *token) {
-    Debug_Assert(is_token_number(token->kind));
+    Debug_Assert(is_token_number(token));
+
+    char *curr = token->text;
+    char digit;
+
+    int base = 0;
+    f64 result = 0.0;
 
     switch (token->kind) {
-    case TOKEN_NUMBER_BINARY: return base2_to_f64(token->text + 2, token->text_length - 2);
-    case TOKEN_NUMBER_DECIMAL: return base10_to_f64(token->text, token->text_length);
-    case TOKEN_NUMBER_OCTAL: return base8_to_f64(token->text + 2, token->text_length - 2);
-    case TOKEN_NUMBER_HEX: return base16_to_f64(token->text + 2, token->text_length - 2);
+    case TOKEN_CONST_NUMBER_BINARY:
+        base = 2;
+        curr += 2;
+        break;
+
+    case TOKEN_CONST_NUMBER_OCTAL:
+        base = 8;
+        curr += 2;
+        break;
+
+    case TOKEN_CONST_NUMBER_DECIMAL: base = 10; break;
+    case TOKEN_CONST_NUMBER_HEX:
+        base = 16;
+        curr += 2;
+        break;
 
     default: Unreachable();
     }
+
+    for (usize i = 0; i < token->text_length - 2; ++i) {
+        digit = to_lowercase(digit);
+        if (digit >= 'a' && digit <= 'f')
+            digit = digit - 'a' + 10;
+        else
+            digit = digit - '0';
+
+        result = (base * result) + digit;
+    }
+
+    return result;
+}
+
+void print_token(Token *token) {
+    printf("%s, ", token_kind_to_cstring[token->kind]);
+    printf("text: %.*s, ", (int)token->text_length, token->text);
+    printf("position: %zu:%zu", token->pos.row, token->pos.col);
 }
 
 // --------------------------------------------------------------------------
@@ -251,37 +337,37 @@ static Token scan_num(Lexer *l) {
     char *save = l->curr;
 
     if (l->current_char == '.') {
-        kind = TOKEN_NUMBER_FLOAT;
+        kind = TOKEN_CONST_NUMBER_FLOAT;
         while (peeknext(l) && is_decimal_digit(*peeknext(l))) {
             nextchar(l);
         }
     } else {
-        kind = TOKEN_NUMBER_DECIMAL;
+        kind = TOKEN_CONST_NUMBER_DECIMAL;
 
         if (l->current_char == '0') {
             char *next = peeknext(l);
             if (next) {
                 switch (*next) {
                 case 'b':
-                    kind = TOKEN_NUMBER_BINARY;
+                    kind = TOKEN_CONST_NUMBER_BINARY;
                     generic_number_scan(l, is_binary_digit);
                     break;
                 case 'x':
-                    kind = TOKEN_NUMBER_HEX;
+                    kind = TOKEN_CONST_NUMBER_HEX;
                     generic_number_scan(l, is_hex_digit);
                     break;
                 case 'o':
-                    kind = TOKEN_NUMBER_OCTAL;
+                    kind = TOKEN_CONST_NUMBER_OCTAL;
                     generic_number_scan(l, is_octal_digit);
                     break;
                 }
             }
         }
 
-        if (kind == TOKEN_NUMBER_DECIMAL) {
+        if (kind == TOKEN_CONST_NUMBER_DECIMAL) {
             while (peeknext(l) && (is_decimal_digit(*peeknext(l)) || *peeknext(l) == '.')) {
                 if (*peeknext(l) == '.') {
-                    kind = TOKEN_NUMBER_FLOAT;
+                    kind = TOKEN_CONST_NUMBER_FLOAT;
                     nextchar(l);
 
                     while (peeknext(l) && is_decimal_digit(*peeknext(l)))
@@ -324,8 +410,23 @@ static Token scan_iden(Lexer *l) {
                                      kw_cstring_lowercase_length)) {                               \
         return make_token(text, text_length, kw, pos, l->line_start);                              \
     }
+#define if_kw_single_char_then_return(kw, kw_char)                                                 \
+    if (to_lowercase(*text) == kw_char) {                                                          \
+        return make_token(text, 1, kw, pos, l->line_start);                                        \
+    }
 
     switch (text_length) {
+    case 1:
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_A, 'a');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_B, 'b');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_C, 'c');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_D, 'd');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_E, 'e');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_H, 'h');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_L, 'l');
+        if_kw_single_char_then_return(TOKEN_KW_GENERAL_REG_M, 'm');
+        break;
+
     case 2:
         if_kw_instruction_then_return(TOKEN_KW_EI, "ei", 2);
         if_kw_instruction_then_return(TOKEN_KW_DI, "di", 2);
@@ -343,6 +444,7 @@ static Token scan_iden(Lexer *l) {
         if_kw_instruction_then_return(TOKEN_KW_CZ, "cz", 2);
         if_kw_instruction_then_return(TOKEN_KW_CP, "cp", 2);
         if_kw_instruction_then_return(TOKEN_KW_CM, "cm", 2);
+        if_kw_instruction_then_return(TOKEN_KW_SPECIAL_REG_SP, "sp", 2);
         break;
 
     case 3:
@@ -397,6 +499,8 @@ static Token scan_iden(Lexer *l) {
         if_kw_instruction_then_return(TOKEN_KW_RST, "rst", 3);
         if_kw_instruction_then_return(TOKEN_KW_DAD, "dad", 3);
         if_kw_instruction_then_return(TOKEN_KW_LXI, "lxi", 3);
+
+        if_kw_instruction_then_return(TOKEN_KW_SPECIAL_REG_PSW, "psw", 3);
         break;
 
     case 4:
@@ -424,6 +528,15 @@ static Token scan_punctuation(Lexer *l) {
     case ',': kind = TOKEN_COMMA; break;
     case ':': kind = TOKEN_COLON; break;
     case ';': kind = TOKEN_SEMICOLON; break;
+    case '$': kind = TOKEN_DOLLAR; break;
+    case '(': kind = TOKEN_LEFT_PAREN; break;
+    case ')': kind = TOKEN_RIGHT_PAREN; break;
+    case '+': kind = TOKEN_PLUS; break;
+    case '-': kind = TOKEN_MINUS; break;
+    case '*': kind = TOKEN_MUL; break;
+    case '/': kind = TOKEN_DIVIDE; break;
+    case '!': kind = TOKEN_BANG; break;
+    case '~': kind = TOKEN_TILDA; break;
 
     default: {
         l->has_error = "Unknown character";
@@ -588,28 +701,6 @@ static void parser_expect_next(Parser *p, Token_Kind kind) {
     }
 }
 
-bool parser_is_current_general_reg(Parser *parser, char general_reg) {
-    if (parser->current_token->text_length > 1) return false;
-    return cast(bool)(general_reg == to_lowercase(*parser->current_token->text));
-}
-
-bool parser_is_current_special_reg(Parser *parser, char *special_reg, u8 len) {
-    if (parser->current_token->text_length != len) return false;
-    switch (len) {
-    case 3:
-        if (special_reg[2] != parser->current_token->text[2]) return false;
-
-    case 2:
-        if (special_reg[0] != parser->current_token->text[0]) return false;
-        if (special_reg[1] != parser->current_token->text[1]) return false;
-        break;
-
-    default: Unreachable();
-    }
-
-    return true;
-}
-
 /* parser error abstraction */
 #define parser_log_error_expected_register(p, registers)                                           \
     parser_log_error(parser, (p)->current_token, "Syntax Error",                                   \
@@ -620,6 +711,226 @@ bool parser_is_current_special_reg(Parser *parser, char *special_reg, u8 len) {
     parser_log_error(parser, (p)->current_token, "Syntax Error",                                   \
                      "Expected Register Pair( " #register_pairs " ) instead got '%.*s'",           \
                      (p)->current_token->text_length, (p)->current_token->text);
+
+// --------------------------------------------------------------------------
+//                          - Expression -
+// --------------------------------------------------------------------------
+#define EXPR_KINDS                                                                                 \
+    EXPR_KIND(Invaild, "Invaild Expr", bool)                                                       \
+    EXPR_KIND(                                                                                     \
+        NumberLiteral, "Number Literal expr", struct {                                             \
+            Token token;                                                                           \
+            u16 number;                                                                            \
+        })                                                                                         \
+    EXPR_KIND(                                                                                     \
+        Identifier, "Identifier expr", struct { Token token; })                                    \
+    EXPR_KIND(                                                                                     \
+        LocationCounter, "Location Counter($)", struct {                                           \
+            Token token;                                                                           \
+            u16 location;                                                                          \
+        })                                                                                         \
+    EXPR_KIND(                                                                                     \
+        UnaryOp, "Unary operation", struct {                                                       \
+            Token token_start, token_end, op;                                                      \
+            Expression *expr;                                                                      \
+        })                                                                                         \
+    EXPR_KIND(                                                                                     \
+        BinaryOp, "Binary operation", struct {                                                     \
+            Token token_start, token_end, op;                                                      \
+            Expression *left, *right;                                                              \
+        })
+
+typedef enum {
+#define EXPR_KIND(kind_name, ...) ExpressionKind_##kind_name,
+    EXPR_KINDS
+#undef EXPR_KIND
+} ExpressionKind;
+
+typedef struct Expression Expression;
+struct Expression {
+    ExpressionKind kind;
+    union {
+#define EXPR_KIND(kind_name, desc, ...) __VA_ARGS__ kind_name;
+        EXPR_KINDS
+#undef EXPR_KIND
+    } type;
+};
+
+void free_expression(Expression *expr) {
+    switch (expr->kind) {
+    case ExpressionKind_NumberLiteral:
+    case ExpressionKind_Identifier:
+    case ExpressionKind_LocationCounter: break;
+
+    case ExpressionKind_UnaryOp:
+        if (expr->type.UnaryOp.expr) free(expr->type.UnaryOp.expr);
+        break;
+
+    case ExpressionKind_BinaryOp:
+        if (expr->type.BinaryOp.left) free(expr->type.BinaryOp.left);
+        if (expr->type.BinaryOp.right) free(expr->type.BinaryOp.right);
+        break;
+
+    default: Unreachable();
+    }
+
+    free(expr);
+}
+
+Expression *Expr_NumberLiteral(Token token, u16 number) {
+    Expression *expr = xmalloc(sizeof(Expression));
+    expr->kind = ExpressionKind_NumberLiteral;
+    expr->type.NumberLiteral.token = token;
+    expr->type.NumberLiteral.number = number;
+    return expr;
+}
+
+Expression *Expr_Identifier(Token token) {
+    Expression *expr = xmalloc(sizeof(Expression));
+    expr->kind = ExpressionKind_Identifier;
+    expr->type.Identifier.token = token;
+    return expr;
+}
+
+Expression *Expr_LocationCounter(Token token, u16 location) {
+    Expression *expr = xmalloc(sizeof(Expression));
+    expr->kind = ExpressionKind_LocationCounter;
+    expr->type.LocationCounter.token = token;
+    expr->type.LocationCounter.location = location;
+    return expr;
+}
+
+Expression *Expr_UnaryOp(Token op, Expression *_expr) {
+    Expression *expr = xmalloc(sizeof(Expression));
+    expr->kind = ExpressionKind_UnaryOp;
+    expr->type.UnaryOp.op = op;
+    expr->type.UnaryOp.expr = _expr;
+    return expr;
+}
+
+Expression *Expr_BinaryOp(Token op, Expression *left, Expression *right) {
+    Expression *expr = xmalloc(sizeof(Expression));
+    expr->kind = ExpressionKind_BinaryOp;
+    expr->type.BinaryOp.op = op;
+    expr->type.BinaryOp.left = left;
+    expr->type.BinaryOp.right = right;
+    return expr;
+}
+
+typedef enum {
+    Precedence_None,        // Returned when token is invaild to stop parsing i.e isn't
+                            // binary, unary or ternary
+    Precedence_Lowest,      // Lowest precedence
+    Precedence_BitwiseOr,   // |
+    Precedence_BitwiseXor,  // ^
+    Precedence_BitwiseAnd,  // &
+    Precedence_Equality,    // == !=
+    Precedence_Comparison,  // < > <= >=
+    Precedenc_BitwiseShits, // << >>
+    Precedence_Term,        // - +
+    Precedence_Factor,      // * /
+    Precedence_Prefix,      // ! - + * & ~
+
+    /* 	Left-to-right
+     * [] 	Array subscripting
+     */
+    Precedence_Suffix, // :: (highest precedence)
+} Precedence;
+
+Precedence get_binary_operator_precedenc(Token_Kind kind) {
+    switch (kind) {
+    case TOKEN_BITWISE_OR: return Precedence_BitwiseOr;
+
+    case TOKEN_BITWISE_XOR: return Precedence_BitwiseXor;
+
+    case TOKEN_BITWISE_AND: return Precedence_BitwiseAnd;
+
+    case TOKEN_PLUS:
+    case TOKEN_MINUS: return Precedence_Term;
+
+    case TOKEN_MUL:
+    case TOKEN_DIVIDE: return Precedence_Factor;
+
+    case TOKEN_LEFT_PAREN: return Precedence_Suffix;
+
+    default:
+        return Precedence_None; /* returning None would stop parsing,
+                                  since parser look for higher
+                                  precedence */
+    }
+}
+
+Expression *parse_expression(Parser *parser, Precedence precedence);
+Expression *parse_unary_expr(Parser *parser);
+
+Expression *parse_primary_expression(Parser *parser) {
+    Expression *expr;
+
+    if (is_token_number(parser->current_token)) {
+        return Expr_NumberLiteral(*parser->current_token,
+                                  cast(u16) number_token_to_f64(parser->current_token));
+    }
+
+    switch (parser->current_token->kind) {
+    case TOKEN_IDENTIFIER: return Expr_Identifier(*parser->current_token);
+    case TOKEN_DOLLAR: return Expr_LocationCounter(*parser->current_token, 0x0);
+
+    case TOKEN_LEFT_PAREN:
+        parser_next_token(parser);
+        expr = parse_expression(parser, Precedence_Lowest);
+        parser_expect_next(parser, TOKEN_RIGHT_PAREN);
+        return expr;
+
+    case TOKEN_PLUS:
+    case TOKEN_MINUS:
+    case TOKEN_TILDA: return parse_unary_expr(parser);
+
+    default: Unreachable();
+    }
+}
+
+Expression *parse_unary_expr(Parser *parser) {
+    Token op;
+    Expression *expr;
+
+    memcpy(&op, parser->current_token, sizeof(Token));
+    expr = parse_expression(parser, Precedence_Prefix);
+    if (!expr) return NULL;
+
+    return Expr_UnaryOp(op, expr);
+}
+
+Expression *parse_binary_expr(Parser *p, Expression *left) {
+    Token op;
+    Expression *right;
+
+    parser_next_token(p);
+    memcpy(&op, p->current_token, sizeof(Token));
+
+    right = parse_expression(p, get_binary_operator_precedenc(op.kind));
+    if (!right) return NULL;
+
+    return Expr_BinaryOp(op, left, right);
+}
+
+Expression *parse_expression(Parser *p, Precedence precedence) {
+    Expression *left;
+    Token *next;
+
+    left = parse_primary_expression(p);
+    if (!left) {
+        return NULL;
+    }
+
+    next = parser_peek_next(p);
+    while (next && next->kind != TOKEN_END_OF_FILE &&
+           precedence < get_binary_operator_precedenc(next->kind)) {
+        left = parse_binary_expr(p, left);
+        next = parser_peek_next(p);
+    }
+
+    return left;
+}
 
 // --------------------------------------------------------------------------
 //                          - Assemblar -
@@ -688,6 +999,33 @@ void assemblar_insert_label(Assemblar *as, Token token, u16 offset) {
     array_push(as->label_table, label);
 }
 
+bool parser_is_current_special_reg(Parser *parser, char *special_reg, u8 len) {
+    if (parser->current_token->text_length != len) return false;
+    switch (len) {
+    case 3:
+        if (special_reg[2] != parser->current_token->text[2]) return false;
+
+    case 2:
+        if (special_reg[0] != parser->current_token->text[0]) return false;
+        if (special_reg[1] != parser->current_token->text[1]) return false;
+        break;
+
+    default: Unreachable();
+    }
+
+    return true;
+}
+
+typedef enum {
+    OperandKind_NumberLiteral,
+    OperandKind_RegisterType,
+    OperandKind_Expression,
+    OperandKind_LocationCounter,
+    OperandKind_AsciiConstant,
+    OperandKind_LabelAssignedValue,
+    OperandKind_LabelInstruction,
+} Assemblar_OperandKind;
+
 // --------------------------------------------------------------------------
 //                          - Emit bytes -
 // --------------------------------------------------------------------------
@@ -696,83 +1034,78 @@ static void emit_byte(Assemblar *as, u8 byte) {
     as->current_address += 1;
 }
 
-#define emit_mov_ins(as, parser, byteA, byteB, byteC, byteD, byteE, byteH, byteL, byteM)           \
-    do {                                                                                           \
-        parser_expect_next(parser, TOKEN_COMMA);                                                   \
-        emit_ins_with_one_reg(as, parser, byteA, byteB, byteC, byteD, byteE, byteH, byteL, byteM); \
-    } while (0)
-
 static void emit_ins_with_one_reg(Assemblar *as, Parser *parser, u8 byteWithA, u8 byteB, u8 byteC,
                                   u8 byteD, u8 byteE, u8 byteH, u8 byteL, u8 byteM) {
-    parser_expect_next(parser, TOKEN_IDENTIFIER);
-    if (parser->current_token->text_length > 1) {
+    if (!parser_peek_next(parser)) {
         parser_log_error_expected_register(parser, a b c d e h l m);
         return;
     }
 
-    if (parser_is_current_general_reg(parser, 'a'))
-        emit_byte(as, byteWithA);
-    else if (parser_is_current_general_reg(parser, 'b'))
-        emit_byte(as, byteB);
-    else if (parser_is_current_general_reg(parser, 'c'))
-        emit_byte(as, byteC);
-    else if (parser_is_current_general_reg(parser, 'd'))
-        emit_byte(as, byteD);
-    else if (parser_is_current_general_reg(parser, 'e'))
-        emit_byte(as, byteE);
-    else if (parser_is_current_general_reg(parser, 'h'))
-        emit_byte(as, byteH);
-    else if (parser_is_current_general_reg(parser, 'l'))
-        emit_byte(as, byteL);
-    else if (parser_is_current_general_reg(parser, 'm'))
-        emit_byte(as, byteM);
-    else {
-        parser_log_error_expected_register(parser, a b c d e h l m);
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_A: emit_byte(as, byteWithA); break;
+    case TOKEN_KW_GENERAL_REG_B: emit_byte(as, byteB); break;
+    case TOKEN_KW_GENERAL_REG_C: emit_byte(as, byteC); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_byte(as, byteD); break;
+    case TOKEN_KW_GENERAL_REG_E: emit_byte(as, byteE); break;
+    case TOKEN_KW_GENERAL_REG_H: emit_byte(as, byteH); break;
+    case TOKEN_KW_GENERAL_REG_L: emit_byte(as, byteL); break;
+    case TOKEN_KW_GENERAL_REG_M: emit_byte(as, byteM); break;
+
+    default: parser_log_error_expected_register(parser, a b c d e h l m);
     }
 }
 
 static void emit_ins_with_rp(Assemblar *as, Parser *parser, u8 bByte, u8 dByte, u8 hByte,
                              u8 spByte) {
-    parser_expect_next(parser, TOKEN_IDENTIFIER);
-    if (parser->current_token->text_length > 2) {
+    if (!parser_peek_next(parser)) {
         parser_log_error_expected_register_pair(parser, b d h sp);
         return;
     }
 
-    if (parser_is_current_general_reg(parser, 'b'))
-        emit_byte(as, bByte);
-    else if (parser_is_current_general_reg(parser, 'd'))
-        emit_byte(as, dByte);
-    else if (parser_is_current_general_reg(parser, 'h'))
-        emit_byte(as, hByte);
-    else if (parser_is_current_special_reg(parser, "sp", 2))
-        emit_byte(as, spByte);
-    else {
-        parser_log_error_expected_register_pair(parser, b d h sp);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_B: emit_byte(as, bByte); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_byte(as, dByte); break;
+    case TOKEN_KW_GENERAL_REG_H: emit_byte(as, hByte);
+    case TOKEN_KW_SPECIAL_REG_SP: emit_byte(as, spByte); break;
+
+    default: parser_log_error_expected_register_pair(parser, b d h sp);
     }
 }
 
 static bool assemblar_get_addr_operand(Assemblar *as, Parser *parser, u16 *addr) {
-    if (parser->current_token->kind == TOKEN_IDENTIFIER) {
-        Label *label = assemblar_find_label(as, parser->current_token->text,
-                                            parser->current_token->text_length);
+    bool has_addr = false;
+    Expression *expr = parse_expression(parser, Precedence_Lowest);
+
+    switch (expr->kind) {
+    case ExpressionKind_NumberLiteral:
+        *addr = expr->type.NumberLiteral.number;
+        has_addr = true;
+        break;
+
+    case ExpressionKind_Identifier: {
+        Label *label = assemblar_find_label(as, expr->type.Identifier.token.text,
+                                            expr->type.Identifier.token.text_length);
         if (!label) {
             parser_log_error(parser, parser->current_token, "Error", "Label not defined '%.*s'",
                              parser->current_token->text_length, parser->current_token->text);
-            return false;
+            has_addr = false;
+        } else {
+            *addr = label->offset;
+            has_addr = true;
         }
+    } break;
 
-        *addr = label->offset;
-        return true;
-    } else if (is_token_number(parser->current_token->kind)) {
-        *addr = cast(u16) number_token_to_f64(parser->current_token);
-        return true;
+    default: {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected address or label, instead got '%.*s'",
+                         parser->current_token->text_length, parser->current_token->text);
+        has_addr = false;
+    }
     }
 
-    parser_log_error(parser, parser->current_token, "Syntax Error",
-                     "Expected address or label, instead got '%.*s'",
-                     parser->current_token->text_length, parser->current_token->text);
-    return false;
+    free_expression(expr);
+    return has_addr;
 }
 
 static void emit_ins_with_addr(Assemblar *as, Parser *parser, u8 opByte) {
@@ -792,7 +1125,7 @@ static void emit_ins_with_imm_byte(Assemblar *as, Parser *parser, u8 emitByte) {
     emit_byte(as, emitByte);
     parser_next_token(parser);
 
-    if (!is_token_number(parser->current_token->kind)) {
+    if (!is_token_number(parser->current_token)) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected immediate byte, instead got '%*.s'",
                          parser->current_token->text_length, parser->current_token->text);
@@ -802,11 +1135,11 @@ static void emit_ins_with_imm_byte(Assemblar *as, Parser *parser, u8 emitByte) {
     }
 }
 
-static void emit_mvi_ins(Assemblar *as, Parser *parser, u8 emitByte) {
+static void emit_single_mvi_ins(Assemblar *as, Parser *parser, u8 emitByte) {
     parser_expect_next(parser, TOKEN_COMMA);
     parser_next_token(parser);
 
-    if (!is_token_number(parser->current_token->kind)) {
+    if (!is_token_number(parser->current_token)) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected immediate byte, instead got '%*.s'",
                          parser->current_token->text_length, parser->current_token->text);
@@ -819,30 +1152,27 @@ static void emit_mvi_ins(Assemblar *as, Parser *parser, u8 emitByte) {
 
 static void emit_stack_op_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
                               u8 bytePSW) {
-    parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-    if (parser->current_token->text_length > 3) {
-        parser_log_error_expected_register_pair(parser, b d h PSW);
+    if (!parser_peek_next(parser)) {
+        parser_log_error_expected_register(parser, b d h psw);
         return;
     }
 
-    if (parser_is_current_general_reg(parser, 'b'))
-        emit_byte(as, byteBC);
-    else if (parser_is_current_general_reg(parser, 'd'))
-        emit_byte(as, byteDE);
-    else if (parser_is_current_general_reg(parser, 'h'))
-        emit_byte(as, byteHL);
-    else if (parser_is_current_special_reg(parser, "psw", 3))
-        emit_byte(as, bytePSW);
-    else
-        parser_log_error_expected_register_pair(parser, b d h PSW);
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_B: emit_byte(as, byteBC); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_byte(as, byteDE); break;
+    case TOKEN_KW_GENERAL_REG_H: emit_byte(as, byteHL);
+    case TOKEN_KW_SPECIAL_REG_PSW: emit_byte(as, bytePSW); break;
+
+    default: parser_log_error_expected_register_pair(parser, b d h psw);
+    }
 }
 
 static void emit_rst_ins(Assemblar *as, Parser *parser, u8 byte0, u8 byte1, u8 byte2, u8 byte3,
                          u8 byte4, u8 byte5, u8 byte6, u8 byte7) {
     parser_next_token(parser);
 
-    if (!is_token_number(parser->current_token->kind)) {
+    if (!is_token_number(parser->current_token)) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected number(0..7), instead got '%*.s'",
                          parser->current_token->text_length, parser->current_token->text);
@@ -867,38 +1197,37 @@ static void emit_rst_ins(Assemblar *as, Parser *parser, u8 byte0, u8 byte1, u8 b
 }
 
 static void emit_ldax_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE) {
-    parser_expect_next(parser, TOKEN_IDENTIFIER);
+    if (!parser_peek_next(parser)) {
+        parser_log_error_expected_register_pair(parser, b d);
+        return;
+    }
 
-    if (parser_is_current_general_reg(parser, 'b'))
-        emit_byte(as, byteBC);
-    else if (parser_is_current_general_reg(parser, 'd'))
-        emit_byte(as, byteDE);
-    else {
-        parser_log_error_expected_register_pair(parser, b d h);
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_B: emit_byte(as, byteBC); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_byte(as, byteDE); break;
+
+    default: parser_log_error_expected_register_pair(parser, b d);
     }
 }
 
 static void emit_lxi_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE, u8 byteHL,
                          u8 byteSP) {
     bool has_error = false;
-    parser_expect_next(parser, TOKEN_IDENTIFIER);
 
-    if (parser->current_token->text_length > 2) {
-        has_error = true;
+    if (!parser_peek_next(parser)) {
         parser_log_error_expected_register_pair(parser, b d h);
-    } else {
-        if (parser_is_current_general_reg(parser, 'b'))
-            emit_byte(as, byteBC);
-        else if (parser_is_current_general_reg(parser, 'd'))
-            emit_byte(as, byteDE);
-        else if (parser_is_current_general_reg(parser, 'h'))
-            emit_byte(as, byteHL);
-        else if (parser_is_current_special_reg(parser, "sp", 2))
-            emit_byte(as, byteSP);
-        else {
-            has_error = true;
-            parser_log_error_expected_register_pair(parser, b d h);
-        }
+        return;
+    }
+
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_B: emit_byte(as, byteBC); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_byte(as, byteDE); break;
+    case TOKEN_KW_GENERAL_REG_H: emit_byte(as, byteHL); break;
+    case TOKEN_KW_SPECIAL_REG_SP: emit_byte(as, byteSP); break;
+
+    default: has_error = true; parser_log_error_expected_register_pair(parser, b d h);
     }
 
     parser_expect_next(parser, TOKEN_COMMA);
@@ -912,6 +1241,93 @@ static void emit_lxi_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE, u8
     if (!has_error) {
         emit_byte(as, cast(u8)(address_operand & 0xff));
         emit_byte(as, cast(u8)((address_operand >> 8) & 0xff));
+    }
+}
+
+static inline void emit_single_mov_ins(Assemblar *as, Parser *parser, u8 byteA, u8 byteB, u8 byteC,
+                                       u8 byteD, u8 byteE, u8 byteH, u8 byteL, u8 byteM) {
+    parser_expect_next(parser, TOKEN_COMMA);
+    emit_ins_with_one_reg(as, parser, byteA, byteB, byteC, byteD, byteE, byteH, byteL, byteM);
+}
+
+void emit_ins_mov(Assemblar *as, Parser *parser) {
+    if (!parser_peek_next(parser)) {
+        parser_log_error_expected_register(parser, a b c d e h l m);
+        return;
+    }
+
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_A:
+        emit_single_mov_ins(as, parser, 0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_B:
+        emit_single_mov_ins(as, parser, 0x47, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_C:
+        emit_single_mov_ins(as, parser, 0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_D:
+        emit_single_mov_ins(as, parser, 0x57, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_E:
+        emit_single_mov_ins(as, parser, 0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_H:
+        emit_single_mov_ins(as, parser, 0x67, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_L:
+        emit_single_mov_ins(as, parser, 0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e);
+        break;
+
+    case TOKEN_KW_GENERAL_REG_M: {
+        parser_expect_next(parser, TOKEN_COMMA);
+
+        if (!parser_peek_next(parser)) {
+            parser_log_error_expected_register(parser, a b c d e h l);
+            return;
+        }
+
+        parser_next_token(parser);
+        switch (parser->current_token->kind) {
+        case TOKEN_KW_GENERAL_REG_A: emit_byte(as, 0x77); break;
+        case TOKEN_KW_GENERAL_REG_B: emit_byte(as, 0x70); break;
+        case TOKEN_KW_GENERAL_REG_C: emit_byte(as, 0x71); break;
+        case TOKEN_KW_GENERAL_REG_D: emit_byte(as, 0x72); break;
+        case TOKEN_KW_GENERAL_REG_E: emit_byte(as, 0x73); break;
+        case TOKEN_KW_GENERAL_REG_H: emit_byte(as, 0x74); break;
+        case TOKEN_KW_GENERAL_REG_L: emit_byte(as, 0x75); break;
+        default: parser_log_error_expected_register(parser, a b c d e h l);
+        }
+    } break;
+
+    default: parser_log_error_expected_register(parser, a b c d e h l m);
+    }
+}
+
+void emit_ins_mvi(Assemblar *as, Parser *parser) {
+    if (!parser_peek_next(parser)) {
+        parser_log_error_expected_register(parser, a b c d e h l);
+        return;
+    }
+
+    parser_next_token(parser);
+    switch (parser->current_token->kind) {
+    case TOKEN_KW_GENERAL_REG_A: emit_single_mvi_ins(as, parser, 0x3e); break;
+    case TOKEN_KW_GENERAL_REG_B: emit_single_mvi_ins(as, parser, 0x06); break;
+    case TOKEN_KW_GENERAL_REG_C: emit_single_mvi_ins(as, parser, 0x0e); break;
+    case TOKEN_KW_GENERAL_REG_D: emit_single_mvi_ins(as, parser, 0x16); break;
+    case TOKEN_KW_GENERAL_REG_E: emit_single_mvi_ins(as, parser, 0x1e); break;
+    case TOKEN_KW_GENERAL_REG_H: emit_single_mvi_ins(as, parser, 0x26); break;
+    case TOKEN_KW_GENERAL_REG_L: emit_single_mvi_ins(as, parser, 0x2e); break;
+    case TOKEN_KW_GENERAL_REG_M: emit_single_mvi_ins(as, parser, 0x36); break;
+    default: parser_log_error_expected_register(parser, a b c d e h l m);
     }
 }
 
@@ -936,9 +1352,9 @@ void assemblar_emit_object_code(Assemblar *as) {
                     assemblar_insert_label(as, *parser->current_token, as->current_address);
                     parser_next_token(parser);
                 } else {
-                    parser_log_error(parser, parser->current_token, "Error",
-                                     "Unknown parse rule '%.*s' ", parser->current_token->text_length,
-                                     parser->current_token->text);
+                    parser_log_error(
+                        parser, parser->current_token, "Error", "Unknown parse rule '%.*s' ",
+                        parser->current_token->text_length, parser->current_token->text);
                     parser_next_token(parser);
                 }
             }
@@ -946,46 +1362,7 @@ void assemblar_emit_object_code(Assemblar *as) {
 
         case TOKEN_KW_HLT: emit_byte(as, 0x76); break;
 
-        case TOKEN_KW_MOV:
-            parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-            if (parser_is_current_general_reg(parser, 'a')) {
-                emit_mov_ins(as, parser, 0x7f, 0x78, 0x79, 0x7a, 0x7b, 0x7c, 0x7d, 0x7e);
-            } else if (parser_is_current_general_reg(parser, 'b')) {
-
-                emit_mov_ins(as, parser, 0x47, 0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46);
-            } else if (parser_is_current_general_reg(parser, 'c')) {
-                emit_mov_ins(as, parser, 0x4f, 0x48, 0x49, 0x4a, 0x4b, 0x4c, 0x4d, 0x4e);
-            } else if (parser_is_current_general_reg(parser, 'd')) {
-                emit_mov_ins(as, parser, 0x57, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56);
-            } else if (parser_is_current_general_reg(parser, 'e')) {
-                emit_mov_ins(as, parser, 0x5f, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5d, 0x5e);
-            } else if (parser_is_current_general_reg(parser, 'h')) {
-                emit_mov_ins(as, parser, 0x67, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66);
-            } else if (parser_is_current_general_reg(parser, 'l')) {
-                emit_mov_ins(as, parser, 0x6f, 0x68, 0x69, 0x6a, 0x6b, 0x6c, 0x6d, 0x6e);
-            } else if (parser_is_current_general_reg(parser, 'm')) {
-                parser_expect_next(parser, TOKEN_COMMA);
-                parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-                if (parser_is_current_general_reg(parser, 'a'))
-                    emit_byte(as, 0x77);
-                else if (parser_is_current_general_reg(parser, 'b'))
-                    emit_byte(as, 0x70);
-                else if (parser_is_current_general_reg(parser, 'c'))
-                    emit_byte(as, 0x71);
-                else if (parser_is_current_general_reg(parser, 'd'))
-                    emit_byte(as, 0x72);
-                else if (parser_is_current_general_reg(parser, 'e'))
-                    emit_byte(as, 0x73);
-                else if (parser_is_current_general_reg(parser, 'h'))
-                    emit_byte(as, 0x74);
-                else if (parser_is_current_general_reg(parser, 'l'))
-                    emit_byte(as, 0x75);
-                else
-                    parser_log_error_expected_register(parser, a b c d e h l);
-            }
-            break;
+        case TOKEN_KW_MOV: emit_ins_mov(as, parser); break;
 
         /* instructions with single register operand */
         case TOKEN_KW_ADD:
@@ -1088,29 +1465,7 @@ void assemblar_emit_object_code(Assemblar *as) {
         case TOKEN_KW_OUT: emit_ins_with_imm_byte(as, parser, 0x3a); break;
         case TOKEN_KW_IN: emit_ins_with_imm_byte(as, parser, 0x3a); break;
 
-        case TOKEN_KW_MVI:
-            parser_expect_next(parser, TOKEN_IDENTIFIER);
-
-            if (parser_is_current_general_reg(parser, 'a'))
-                emit_mvi_ins(as, parser, 0x3e);
-            else if (parser_is_current_general_reg(parser, 'b'))
-                emit_mvi_ins(as, parser, 0x06);
-            else if (parser_is_current_general_reg(parser, 'c'))
-                emit_mvi_ins(as, parser, 0x0e);
-            else if (parser_is_current_general_reg(parser, 'd'))
-                emit_mvi_ins(as, parser, 0x16);
-            else if (parser_is_current_general_reg(parser, 'e'))
-                emit_mvi_ins(as, parser, 0x1e);
-            else if (parser_is_current_general_reg(parser, 'h'))
-                emit_mvi_ins(as, parser, 0x26);
-            else if (parser_is_current_general_reg(parser, 'l'))
-                emit_mvi_ins(as, parser, 0x2e);
-            else if (parser_is_current_general_reg(parser, 'm'))
-                emit_mvi_ins(as, parser, 0x36);
-            else {
-                parser_log_error_expected_register(parser, a b c d e h l m);
-            }
-            break;
+        case TOKEN_KW_MVI: emit_ins_mvi(as, parser); break;
 
         /* stack instruction */
         case TOKEN_KW_PUSH: emit_stack_op_ins(as, parser, 0xc5, 0xd5, 0xe5, 0xf5); break;
@@ -1155,25 +1510,59 @@ AssemblarResult assemblar_dump_bytecode(Assemblar *as, char *output_filepath) {
     return AssemblarResult_Ok;
 }
 
+#ifdef Debug
+void cli_dump_tokens(char *source_filepath) {
+    char *source_string = file_as_string(source_filepath);
+    if (!source_string) {
+        eprintln("error: couldn't read input file: %s", source_filepath);
+        return;
+    }
+
+    Lexer *l = make_lexer(&source_string);
+    Array(Token) tokens = slurp_tokens(l);
+    array_for_each(tokens, i) {
+        print_token(&tokens[i]);
+        printf("\n");
+    }
+    free_string(source_string);
+    free_array(tokens);
+    free(l);
+}
+#endif
+
 int main(int argc, char **argv) {
     char *source_filepath;
     char *output_filepath = NULL;
+
+#ifdef Debug
+    bool is_lex_tokens = false;
+#endif
 
     Cli_Flag positionals[] = {
         Flag_CString_Positional(&source_filepath, "SOURCE_FILEPATH", "asm source filepath")};
 
     Cli_Flag optionals[] = {
         Flag_CString(&output_filepath, "o", "output", "output binary filepath"),
+#ifdef Debug
+        Flag_Bool(&is_lex_tokens, "l", "lex-tokens", "output lexical tokens"),
+#endif
     };
 
     Cli cli =
         create_cli(argc, argv, "assemblar8080", positionals, array_sizeof(positionals, Cli_Flag),
                    optionals, array_sizeof(optionals, Cli_Flag));
-    cli_parse_args(&cli);
 
+    cli_parse_args(&cli);
     if (cli_has_error(&cli)) {
         exit(EXIT_FAILURE);
     }
+
+#ifdef Debug
+    if (is_lex_tokens) {
+        cli_dump_tokens(source_filepath);
+        return 0;
+    }
+#endif
 
     Assemblar assemblar;
     AssemblarResult result = init_assemblar(&assemblar, source_filepath);
@@ -1183,18 +1572,19 @@ int main(int argc, char **argv) {
     }
 
     assemblar_emit_object_code(&assemblar);
-
     if (assemblar_dump_bytecode(&assemblar, output_filepath) != AssemblarResult_Ok) {
         eprintln("error: couldn't dump object code in file: %s", output_filepath);
         exit(EXIT_FAILURE);
     }
 
+#if 0
     array_for_each(assemblar.label_table, i) {
         debug_println("labels: ");
         debug_println("name: %s, length: %zu, addr: %d", assemblar.label_table[i].name,
                       string_length(assemblar.label_table[i].name),
                       assemblar.label_table[i].offset);
     }
+#endif
 
     deinit_assemblar(&assemblar);
     return 0;

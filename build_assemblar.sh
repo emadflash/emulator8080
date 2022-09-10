@@ -18,7 +18,7 @@ panic() {
 build_assemblar() {
     case $1 in
     debug)
-        EXTRAFLAGS="-Wall -Wextra -pedantic -ggdb -DDebug"
+        EXTRAFLAGS="-Wall -Wextra -pedantic -ggdb -DDebug -fsanitize=address"
         ;;
 
     release)
