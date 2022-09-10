@@ -12,7 +12,7 @@ typedef enum {
     Cli_FlagType_CString,
 } Cli_FlagType;
 
-static char *flag_type_to_cstring[] = {
+static char const *flag_type_to_cstring[] = {
     [Cli_FlagType_Bool] = "bool",
     [Cli_FlagType_Int] = "int",
     [Cli_FlagType_CString] = "string",

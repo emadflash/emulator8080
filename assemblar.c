@@ -193,43 +193,43 @@ f64 base2_to_f6s4(char *str, usize length) {
     return result;
 }
 
-static f64 number_token_to_f64(Token *token) {
+static i64 number_token_to_i64(Token *token) {
     Debug_Assert(is_token_number(token));
 
-    char *curr = token->text;
-    char digit;
+    char *curr;
+    u8 digit;
 
     int base = 0;
-    f64 result = 0.0;
+    u8 mins_prefix = 2;
+    i64 result = 0;
 
     switch (token->kind) {
-    case TOKEN_CONST_NUMBER_BINARY:
-        base = 2;
-        curr += 2;
+    case TOKEN_CONST_NUMBER_BINARY: base = 2; break;
+
+    case TOKEN_CONST_NUMBER_OCTAL: base = 8; break;
+
+    case TOKEN_CONST_NUMBER_DECIMAL:
+        base = 10;
+        mins_prefix = 0;
         break;
 
-    case TOKEN_CONST_NUMBER_OCTAL:
-        base = 8;
-        curr += 2;
-        break;
-
-    case TOKEN_CONST_NUMBER_DECIMAL: base = 10; break;
-    case TOKEN_CONST_NUMBER_HEX:
-        base = 16;
-        curr += 2;
-        break;
+    case TOKEN_CONST_NUMBER_HEX: base = 16; break;
 
     default: Unreachable();
     }
 
-    for (usize i = 0; i < token->text_length - 2; ++i) {
-        digit = to_lowercase(digit);
+    i64 base_raise_to_power = 1;
+    curr = token->text + token->text_length - 1;
+
+    for (usize i = 0; i < token->text_length - mins_prefix; ++i) {
+        digit = cast(u8) to_lowercase(*curr--);
         if (digit >= 'a' && digit <= 'f')
             digit = digit - 'a' + 10;
         else
             digit = digit - '0';
 
-        result = (base * result) + digit;
+        result += base_raise_to_power * digit;
+        base_raise_to_power *= base;
     }
 
     return result;
@@ -731,14 +731,32 @@ static void parser_expect_next(Parser *p, Token_Kind kind) {
         })                                                                                         \
     EXPR_KIND(                                                                                     \
         UnaryOp, "Unary operation", struct {                                                       \
-            Token token_start, token_end, op;                                                      \
+            Token op_tok;                                                                          \
+            UnaryOp_Kind op_kind;                                                                  \
             Expression *expr;                                                                      \
         })                                                                                         \
     EXPR_KIND(                                                                                     \
         BinaryOp, "Binary operation", struct {                                                     \
-            Token token_start, token_end, op;                                                      \
+            Token op_tok;                                                                          \
+            BinaryOp_Kind op_kind;                                                                 \
             Expression *left, *right;                                                              \
         })
+
+typedef enum {
+    UnaryOp_Plus,
+    UnaryOp_Minus,
+    UnaryOp_BitwiseNot,
+} UnaryOp_Kind;
+
+typedef enum {
+    BinaryOp_Plus,
+    BinaryOp_Minus,
+    BinaryOp_Mul,
+    BinaryOp_Divide,
+    BinaryOp_BitwiseXor,
+    BinaryOp_BitwiseOr,
+    BinaryOp_BitwiseAnd,
+} BinaryOp_Kind;
 
 typedef enum {
 #define EXPR_KIND(kind_name, ...) ExpressionKind_##kind_name,
@@ -763,12 +781,12 @@ void free_expression(Expression *expr) {
     case ExpressionKind_LocationCounter: break;
 
     case ExpressionKind_UnaryOp:
-        if (expr->type.UnaryOp.expr) free(expr->type.UnaryOp.expr);
+        if (expr->type.UnaryOp.expr) free_expression(expr->type.UnaryOp.expr);
         break;
 
     case ExpressionKind_BinaryOp:
-        if (expr->type.BinaryOp.left) free(expr->type.BinaryOp.left);
-        if (expr->type.BinaryOp.right) free(expr->type.BinaryOp.right);
+        if (expr->type.BinaryOp.left) free_expression(expr->type.BinaryOp.left);
+        if (expr->type.BinaryOp.right) free_expression(expr->type.BinaryOp.right);
         break;
 
     default: Unreachable();
@@ -800,18 +818,21 @@ Expression *Expr_LocationCounter(Token token, u16 location) {
     return expr;
 }
 
-Expression *Expr_UnaryOp(Token op, Expression *_expr) {
+Expression *Expr_UnaryOp(Token op_tok, UnaryOp_Kind op_kind, Expression *_expr) {
     Expression *expr = xmalloc(sizeof(Expression));
     expr->kind = ExpressionKind_UnaryOp;
-    expr->type.UnaryOp.op = op;
+    expr->type.UnaryOp.op_tok = op_tok;
+    expr->type.UnaryOp.op_kind = op_kind;
     expr->type.UnaryOp.expr = _expr;
     return expr;
 }
 
-Expression *Expr_BinaryOp(Token op, Expression *left, Expression *right) {
+Expression *Expr_BinaryOp(Token op_tok, BinaryOp_Kind op_kind, Expression *left,
+                          Expression *right) {
     Expression *expr = xmalloc(sizeof(Expression));
     expr->kind = ExpressionKind_BinaryOp;
-    expr->type.BinaryOp.op = op;
+    expr->type.BinaryOp.op_tok = op_tok;
+    expr->type.BinaryOp.op_kind = op_kind;
     expr->type.BinaryOp.left = left;
     expr->type.BinaryOp.right = right;
     return expr;
@@ -837,21 +858,20 @@ typedef enum {
     Precedence_Suffix, // :: (highest precedence)
 } Precedence;
 
-Precedence get_binary_operator_precedenc(Token_Kind kind) {
+Precedence get_binary_operator_precedenc(Token_Kind kind, BinaryOp_Kind *op_kind) {
     switch (kind) {
-    case TOKEN_BITWISE_OR: return Precedence_BitwiseOr;
+    /* Bitwise Operations */
+    case TOKEN_BITWISE_OR: *op_kind = BinaryOp_BitwiseOr; return Precedence_BitwiseOr;
+    case TOKEN_BITWISE_XOR: *op_kind = BinaryOp_BitwiseXor; return Precedence_BitwiseXor;
+    case TOKEN_BITWISE_AND: *op_kind = BinaryOp_BitwiseAnd; return Precedence_BitwiseAnd;
 
-    case TOKEN_BITWISE_XOR: return Precedence_BitwiseXor;
+    /* Term */
+    case TOKEN_PLUS: *op_kind = BinaryOp_Plus; return Precedence_Term;
+    case TOKEN_MINUS: *op_kind = BinaryOp_Minus; return Precedence_Term;
 
-    case TOKEN_BITWISE_AND: return Precedence_BitwiseAnd;
-
-    case TOKEN_PLUS:
-    case TOKEN_MINUS: return Precedence_Term;
-
-    case TOKEN_MUL:
-    case TOKEN_DIVIDE: return Precedence_Factor;
-
-    case TOKEN_LEFT_PAREN: return Precedence_Suffix;
+    /* Factor */
+    case TOKEN_MUL: *op_kind = BinaryOp_Mul; return Precedence_Factor;
+    case TOKEN_DIVIDE: *op_kind = BinaryOp_Divide; return Precedence_Factor;
 
     default:
         return Precedence_None; /* returning None would stop parsing,
@@ -861,14 +881,14 @@ Precedence get_binary_operator_precedenc(Token_Kind kind) {
 }
 
 Expression *parse_expression(Parser *parser, Precedence precedence);
-Expression *parse_unary_expr(Parser *parser);
+Expression *parse_unary_expr(Parser *parser, UnaryOp_Kind op_kind);
 
 Expression *parse_primary_expression(Parser *parser) {
     Expression *expr;
 
     if (is_token_number(parser->current_token)) {
         return Expr_NumberLiteral(*parser->current_token,
-                                  cast(u16) number_token_to_f64(parser->current_token));
+                                  cast(u16) number_token_to_i64(parser->current_token));
     }
 
     switch (parser->current_token->kind) {
@@ -881,41 +901,47 @@ Expression *parse_primary_expression(Parser *parser) {
         parser_expect_next(parser, TOKEN_RIGHT_PAREN);
         return expr;
 
-    case TOKEN_PLUS:
-    case TOKEN_MINUS:
-    case TOKEN_TILDA: return parse_unary_expr(parser);
+    /* Unary expressions */
+    case TOKEN_PLUS: return parse_unary_expr(parser, UnaryOp_Plus);
+    case TOKEN_MINUS: return parse_unary_expr(parser, UnaryOp_Minus);
+    case TOKEN_TILDA: return parse_unary_expr(parser, UnaryOp_BitwiseNot);
 
     default: Unreachable();
     }
 }
 
-Expression *parse_unary_expr(Parser *parser) {
-    Token op;
+Expression *parse_unary_expr(Parser *parser, UnaryOp_Kind op_kind) {
+    Token op_tok;
     Expression *expr;
 
-    memcpy(&op, parser->current_token, sizeof(Token));
+    memcpy(&op_tok, parser->current_token, sizeof(Token));
+
+    parser_next_token(parser);
     expr = parse_expression(parser, Precedence_Prefix);
     if (!expr) return NULL;
 
-    return Expr_UnaryOp(op, expr);
+    return Expr_UnaryOp(op_tok, op_kind, expr);
 }
 
-Expression *parse_binary_expr(Parser *p, Expression *left) {
-    Token op;
+Expression *parse_binary_expr(Parser *p, Expression *left, Precedence precedence,
+                              BinaryOp_Kind binop_kind) {
+    Token op_tok;
     Expression *right;
 
     parser_next_token(p);
-    memcpy(&op, p->current_token, sizeof(Token));
+    memcpy(&op_tok, p->current_token, sizeof(Token));
 
-    right = parse_expression(p, get_binary_operator_precedenc(op.kind));
+    parser_next_token(p);
+    right = parse_expression(p, precedence);
     if (!right) return NULL;
 
-    return Expr_BinaryOp(op, left, right);
+    return Expr_BinaryOp(op_tok, binop_kind, left, right);
 }
 
 Expression *parse_expression(Parser *p, Precedence precedence) {
     Expression *left;
     Token *next;
+    BinaryOp_Kind binop_kind;
 
     left = parse_primary_expression(p);
     if (!left) {
@@ -924,8 +950,8 @@ Expression *parse_expression(Parser *p, Precedence precedence) {
 
     next = parser_peek_next(p);
     while (next && next->kind != TOKEN_END_OF_FILE &&
-           precedence < get_binary_operator_precedenc(next->kind)) {
-        left = parse_binary_expr(p, left);
+           precedence < get_binary_operator_precedenc(next->kind, &binop_kind)) {
+        left = parse_binary_expr(p, left, precedence, binop_kind);
         next = parser_peek_next(p);
     }
 
@@ -999,23 +1025,6 @@ void assemblar_insert_label(Assemblar *as, Token token, u16 offset) {
     array_push(as->label_table, label);
 }
 
-bool parser_is_current_special_reg(Parser *parser, char *special_reg, u8 len) {
-    if (parser->current_token->text_length != len) return false;
-    switch (len) {
-    case 3:
-        if (special_reg[2] != parser->current_token->text[2]) return false;
-
-    case 2:
-        if (special_reg[0] != parser->current_token->text[0]) return false;
-        if (special_reg[1] != parser->current_token->text[1]) return false;
-        break;
-
-    default: Unreachable();
-    }
-
-    return true;
-}
-
 typedef enum {
     OperandKind_NumberLiteral,
     OperandKind_RegisterType,
@@ -1025,6 +1034,82 @@ typedef enum {
     OperandKind_LabelAssignedValue,
     OperandKind_LabelInstruction,
 } Assemblar_OperandKind;
+
+u16 assemblar_evaluate_expression(Assemblar *as, Parser *parser, Expression *expr) {
+    switch (expr->kind) {
+    case ExpressionKind_NumberLiteral: return expr->type.NumberLiteral.number;
+    case ExpressionKind_LocationCounter: return as->current_address;
+
+    case ExpressionKind_Identifier: {
+        Label *label = assemblar_find_label(as, expr->type.Identifier.token.text,
+                                            expr->type.Identifier.token.text_length);
+        if (!label) {
+            parser_log_error(parser, parser->current_token, "Error", "Label not defined '%.*s'",
+                             parser->current_token->text_length, parser->current_token->text);
+        } else {
+            return label->offset;
+        }
+    };
+
+    case ExpressionKind_UnaryOp: {
+        u16 res = assemblar_evaluate_expression(as, parser, expr->type.UnaryOp.expr);
+
+        switch (expr->type.UnaryOp.op_kind) {
+        case UnaryOp_Plus: break;
+
+        case UnaryOp_Minus: res = -res; break;
+
+        case UnaryOp_BitwiseNot: res = ~res; break;
+
+        default: Unreachable();
+        }
+
+        return res;
+    };
+
+    case ExpressionKind_BinaryOp: {
+        u16 left = assemblar_evaluate_expression(as, parser, expr->type.BinaryOp.left);
+        u16 right = assemblar_evaluate_expression(as, parser, expr->type.BinaryOp.right);
+
+        switch (expr->type.BinaryOp.op_kind) {
+        case BinaryOp_Plus: return left + right;
+
+        case BinaryOp_Minus: return left - right;
+
+        case BinaryOp_Mul: return left * right;
+
+        case BinaryOp_Divide: return left / right;
+
+        case BinaryOp_BitwiseXor: return left ^ right;
+
+        case BinaryOp_BitwiseOr: return left | right;
+
+        case BinaryOp_BitwiseAnd: return left & right;
+
+        default: Unreachable();
+        }
+    };
+
+    default: Unreachable();
+    }
+}
+
+static bool assemblar_get_addr_operand(Assemblar *as, Parser *parser, u16 *addr) {
+    bool has_addr = true;
+    Expression *expr = parse_expression(parser, Precedence_Lowest);
+
+    if (!expr) {
+        parser_log_error(parser, parser->current_token, "Syntax Error",
+                         "Expected address or label, instead got '%.*s'",
+                         parser->current_token->text_length, parser->current_token->text);
+        has_addr = false;
+    } else {
+        *addr = assemblar_evaluate_expression(as, parser, expr);
+    }
+
+    free_expression(expr);
+    return has_addr;
+}
 
 // --------------------------------------------------------------------------
 //                          - Emit bytes -
@@ -1073,41 +1158,6 @@ static void emit_ins_with_rp(Assemblar *as, Parser *parser, u8 bByte, u8 dByte, 
     }
 }
 
-static bool assemblar_get_addr_operand(Assemblar *as, Parser *parser, u16 *addr) {
-    bool has_addr = false;
-    Expression *expr = parse_expression(parser, Precedence_Lowest);
-
-    switch (expr->kind) {
-    case ExpressionKind_NumberLiteral:
-        *addr = expr->type.NumberLiteral.number;
-        has_addr = true;
-        break;
-
-    case ExpressionKind_Identifier: {
-        Label *label = assemblar_find_label(as, expr->type.Identifier.token.text,
-                                            expr->type.Identifier.token.text_length);
-        if (!label) {
-            parser_log_error(parser, parser->current_token, "Error", "Label not defined '%.*s'",
-                             parser->current_token->text_length, parser->current_token->text);
-            has_addr = false;
-        } else {
-            *addr = label->offset;
-            has_addr = true;
-        }
-    } break;
-
-    default: {
-        parser_log_error(parser, parser->current_token, "Syntax Error",
-                         "Expected address or label, instead got '%.*s'",
-                         parser->current_token->text_length, parser->current_token->text);
-        has_addr = false;
-    }
-    }
-
-    free_expression(expr);
-    return has_addr;
-}
-
 static void emit_ins_with_addr(Assemblar *as, Parser *parser, u8 opByte) {
     emit_byte(as, opByte);
     parser_next_token(parser);
@@ -1130,7 +1180,7 @@ static void emit_ins_with_imm_byte(Assemblar *as, Parser *parser, u8 emitByte) {
                          "Expected immediate byte, instead got '%*.s'",
                          parser->current_token->text_length, parser->current_token->text);
     } else {
-        f64 num = number_token_to_f64(parser->current_token);
+        f64 num = number_token_to_i64(parser->current_token);
         emit_byte(as, cast(u8)((uint)num & 0xff));
     }
 }
@@ -1145,7 +1195,7 @@ static void emit_single_mvi_ins(Assemblar *as, Parser *parser, u8 emitByte) {
                          parser->current_token->text_length, parser->current_token->text);
     } else {
         emit_byte(as, emitByte);
-        f64 num = number_token_to_f64(parser->current_token);
+        f64 num = number_token_to_i64(parser->current_token);
         emit_byte(as, cast(u8)((uint)num & 0xff));
     }
 }
@@ -1171,29 +1221,32 @@ static void emit_stack_op_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteD
 static void emit_rst_ins(Assemblar *as, Parser *parser, u8 byte0, u8 byte1, u8 byte2, u8 byte3,
                          u8 byte4, u8 byte5, u8 byte6, u8 byte7) {
     parser_next_token(parser);
+    Expression *expr = parse_expression(parser, Precedence_Lowest);
 
-    if (!is_token_number(parser->current_token)) {
+    if (!expr) {
         parser_log_error(parser, parser->current_token, "Syntax Error",
                          "Expected number(0..7), instead got '%*.s'",
                          parser->current_token->text_length, parser->current_token->text);
         return;
     }
 
-    int num = cast(int) number_token_to_f64(parser->current_token);
+    u16 operand = assemblar_evaluate_expression(as, parser, expr);
 
-    switch (num) {
-    case 0: emit_byte(as, byte0);
-    case 1: emit_byte(as, byte1);
-    case 2: emit_byte(as, byte2);
-    case 3: emit_byte(as, byte3);
-    case 4: emit_byte(as, byte4);
-    case 5: emit_byte(as, byte5);
-    case 6: emit_byte(as, byte6);
-    case 7: emit_byte(as, byte7);
+    switch (operand) {
+    case 0: emit_byte(as, byte0); break;
+    case 1: emit_byte(as, byte1); break;
+    case 2: emit_byte(as, byte2); break;
+    case 3: emit_byte(as, byte3); break;
+    case 4: emit_byte(as, byte4); break;
+    case 5: emit_byte(as, byte5); break;
+    case 6: emit_byte(as, byte6); break;
+    case 7: emit_byte(as, byte7); break;
     default:
         parser_log_error(parser, parser->current_token, "Syntax Error",
-                         "Expected number(0..7), instead got '%d'", cast(int) num);
+                         "Expected number(0..7), instead got '%d'", operand);
     }
+
+    free_expression(expr);
 }
 
 static void emit_ldax_ins(Assemblar *as, Parser *parser, u8 byteBC, u8 byteDE) {
@@ -1331,6 +1384,25 @@ void emit_ins_mvi(Assemblar *as, Parser *parser) {
     }
 }
 
+void assemblar_visit_identifier(Assemblar *as, Parser *parser) {
+    Token *next = parser_peek_next(parser);
+
+    if (!next) {
+        parser_log_error(parser, parser->current_token, "Error", "Unknown parse rule '%.*s' ",
+                         parser->current_token->text_length, parser->current_token->text);
+        parser_next_token(parser);
+    } else {
+        if (next->kind == TOKEN_COLON) {
+            assemblar_insert_label(as, *parser->current_token, as->current_address);
+            parser_next_token(parser);
+        } else {
+            parser_log_error(parser, parser->current_token, "Error", "Unknown parse rule '%.*s' ",
+                             parser->current_token->text_length, parser->current_token->text);
+            parser_next_token(parser);
+        }
+    }
+}
+
 void assemblar_emit_object_code(Assemblar *as) {
     Parser *parser = make_parser(as->source_filepath, &as->source_string);
     Token *next = parser_peek_next(parser);
@@ -1340,25 +1412,7 @@ void assemblar_emit_object_code(Assemblar *as) {
 
         switch (parser->current_token->kind) {
         /* label */
-        case TOKEN_IDENTIFIER:
-            next = parser_peek_next(parser);
-            if (!next) {
-                parser_log_error(parser, parser->current_token, "Error",
-                                 "Unknown parse rule '%.*s' ", parser->current_token->text_length,
-                                 parser->current_token->text);
-                parser_next_token(parser);
-            } else {
-                if (next->kind == TOKEN_COLON) {
-                    assemblar_insert_label(as, *parser->current_token, as->current_address);
-                    parser_next_token(parser);
-                } else {
-                    parser_log_error(
-                        parser, parser->current_token, "Error", "Unknown parse rule '%.*s' ",
-                        parser->current_token->text_length, parser->current_token->text);
-                    parser_next_token(parser);
-                }
-            }
-            break;
+        case TOKEN_IDENTIFIER: assemblar_visit_identifier(as, parser); break;
 
         case TOKEN_KW_HLT: emit_byte(as, 0x76); break;
 
