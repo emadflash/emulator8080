@@ -79,16 +79,19 @@ Cli create_cli(int argc, char **argv, char *program_name, Cli_Flag *positionals,
     };
 }
 
+#define cli_report_error(cli, ...)                                                                 \
+    do {                                                                                           \
+        fprintf(stderr, __VA_ARGS__);                                                              \
+        cli->error_count += 1;                                                                     \
+    } while (0);
+
+#define cli_report_warning(cli, ...)                                                               \
+    do {                                                                                           \
+        fprintf(stderr, __VA_ARGS__);                                                              \
+    } while (0);
+
 bool cli_has_error(Cli *cli) {
     return cli->error_count != 0 ? true : false;
-}
-
-static void cli_report_error(Cli *cli, char *msg, ...) {
-    va_list ap;
-    va_start(ap, msg);
-    vfprintf(stderr, msg, ap);
-    va_end(ap);
-    cli->error_count += 1;
 }
 
 static Cli_Flag *cli_find_optional_flag(Cli *cli, char *arg_cstr) {
@@ -329,7 +332,7 @@ int cli_parse_args(Cli *cli) {
     while (argv_idx < cli->argc) {
         if (*cli->argv[argv_idx] != '-') { /* Positional arg */
             if (positionals_idx >= cli->positionals_count) {
-                cli_report_error(cli, "warning: ignoring '%s'\n", cli->argv[argv_idx]);
+                cli_report_warning(cli, "warning: ignoring '%s'\n", cli->argv[argv_idx]);
             } else {
                 flag_value = cli->argv[argv_idx];
                 found_flag = &cli->positionals[positionals_idx];
