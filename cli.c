@@ -54,19 +54,13 @@ typedef struct Cli Cli;
 struct Cli {
     int argc;
     char **argv;
-
-    char *author_name;
-    char *email_address;
     char *program_name;
-    char *version;
-    char *program_description;
 
     Cli_Flag *positionals;
     int positionals_count;
     Cli_Flag *optionals;
     int optionals_count;
 
-    bool has_extra_info;
     int error_count;
 };
 
@@ -76,27 +70,13 @@ Cli create_cli(int argc, char **argv, char *program_name, Cli_Flag *positionals,
     return (Cli){
         .argc = argc,
         .argv = argv,
-        .author_name = NULL,
-        .email_address = NULL,
         .program_name = program_name,
-        .program_description = NULL,
-        .version = NULL,
         .positionals = positionals,
         .positionals_count = positionals_count,
         .optionals = optionals,
         .optionals_count = optionals_count,
-        .has_extra_info = false,
         .error_count = 0,
     };
-}
-
-void cli_set_extra_info(Cli *cli, char *version, char *author_name, char *email_address,
-                        char *program_description) {
-    cli->version = version;
-    cli->author_name = author_name;
-    cli->email_address = email_address;
-    cli->program_description = program_description;
-    cli->has_extra_info = true;
 }
 
 bool cli_has_error(Cli *cli) {
