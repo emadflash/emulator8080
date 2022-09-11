@@ -316,7 +316,9 @@ void cpu_execute(Cpu *cpu) {
 
         /* ldax */
         case 0x0a: cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_bc(cpu)); break; // LDAX B
-        case 0x1a: cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_de(cpu)); break; // LDAX D
+        case 0x1a:
+            cpu->accmulator = cpu_mem_access(cpu, cpu_reg_pair_de(cpu));
+            break; // LDAX D
 
         /* stax */
         case 0x02: cpu_mem_set(cpu, cpu_reg_pair_bc(cpu), cpu->accmulator); break; // STAX B
@@ -683,7 +685,7 @@ void cpu_execute(Cpu *cpu) {
         case 0x09: dad(cpu_reg_pair_bc(cpu)); break; // DAD BC
         case 0x19: dad(cpu_reg_pair_de(cpu)); break; // DAD DE
         case 0x29: dad(cpu_reg_pair_hl(cpu)); break; // DAD HL
-        case 0x39: dad(cpu->sp); break; // DAD SP
+        case 0x39: dad(cpu->sp); break;              // DAD SP
 
         case 0xdb: // IN [D8]
         case 0xd3: // OUT [D8]

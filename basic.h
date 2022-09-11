@@ -59,7 +59,6 @@ typedef ptrdiff_t isize;
     } while (0);
 
 #define array_sizeof(arr, Type) (sizeof(arr) / sizeof(Type))
-#define are_cstrings_equal(cstr, str, length) (strncmp(cstr, str, length) == 0)
 
 #define println(...)                                                                               \
     do {                                                                                           \
@@ -299,5 +298,6 @@ bool are_strings_equal(String lhs, String rhs);
 bool are_strings_equal_length(String lhs, char *rhs, usize rhs_length);
 bool are_equal_cstring(String lhs, char *rhs);
 String file_as_string(char *filepath);
+bool are_cstrings_equal_length(char *a, char const *b, usize length);
 
 #endif

@@ -145,6 +145,17 @@ bool are_equal_cstring(String lhs, char *rhs) {
     return true;
 }
 
+bool are_cstrings_equal_length(char *a, char const *b, usize length) {
+    while (length && *b) {
+        if (*a != *b) return false;
+        a++;
+        b++;
+        length--;
+    }
+    if (length != 0 || *b != '\0') return false;
+    return true;
+}
+
 String file_as_string(char *filepath) {
     FILE *f;
     String content;

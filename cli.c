@@ -94,14 +94,18 @@ bool cli_has_error(Cli *cli) {
     return cli->error_count != 0 ? true : false;
 }
 
-static Cli_Flag *cli_find_optional_flag(Cli *cli, char *arg_cstr) {
+static Cli_Flag *cli_find_optional_flag_big(Cli *cli, char *flag_name, u32 flag_name_len) {
     for (u8 i = 0; i < cli->optionals_count; ++i) {
-        if (are_cstrings_equal(arg_cstr, cli->optionals[i].big_name,
-                               strlen(cli->optionals[i].big_name)))
+        if (are_cstrings_equal_length(flag_name, cli->optionals[i].big_name, flag_name_len))
             return &cli->optionals[i];
+    }
+    return NULL;
+}
+
+static Cli_Flag *cli_find_optional_flag_small(Cli *cli, char *flag_name, u32 flag_name_len) {
+    for (u8 i = 0; i < cli->optionals_count; ++i) {
         if (cli->optionals[i].small_name &&
-            are_cstrings_equal(arg_cstr, cli->optionals[i].small_name,
-                               strlen(cli->optionals[i].small_name)))
+            are_cstrings_equal_length(flag_name, cli->optionals[i].small_name, flag_name_len))
             return &cli->optionals[i];
     }
     return NULL;
@@ -181,30 +185,22 @@ static int cli_find_and_set_value(Cli *cli, int curr_idx, char *curr, char *flag
  *
  *   -f                 , flag_name = f, flag_value = NULL
  */
-static int split_flag_name_and_value_at_equal_sign(Cli *cli, int curr_idx, char **flag_name,
+static int split_flag_name_and_value_at_equal_sign(Cli *cli, int curr_idx, char *dash_stripped_curr,
+                                                   char **flag_name, u32 *flag_name_len,
                                                    char **flag_value) {
-    char *curr = cli->argv[curr_idx];
-    int dash_count = strip_dashes(&curr);
+    *flag_name = dash_stripped_curr;
+    *flag_name_len = 0;
 
-    /*
-     * if (dash_count == 1) { // single dash aka small flags
-     *    return curr_idx;
-     * }
-     *
-     * TODO(madflash) - In case of short flag, parse multiple names
-     *
-     * For example:
-     *    -hdlf  ---> h, d, l, f are all seperate flags, maybe all booleans, h for help etc
-     */
+    while (*dash_stripped_curr && *dash_stripped_curr != '=') { /* find equal sign */
+        *flag_name_len += 1;
+        dash_stripped_curr++;
+    }
 
-    *flag_name = curr;
-    while (*curr && *curr != '=') /* find equal sign */
-        curr++;
-
-    if (*curr && *curr == '=') { /* equal sign is present in arg */
-        *curr = '\0';
-        curr++;
-        curr_idx = cli_find_and_set_value(cli, curr_idx, curr, *flag_name, flag_value);
+    if (*dash_stripped_curr && *dash_stripped_curr == '=') { /* equal sign is present in arg */
+        *dash_stripped_curr = '\0';
+        dash_stripped_curr++;
+        curr_idx =
+            cli_find_and_set_value(cli, curr_idx, dash_stripped_curr, *flag_name, flag_value);
     } else { /* equal sign is not present in arg */
         if (curr_idx + 1 >= cli->argc ||
             *cli->argv[curr_idx + 1] != '=') { /* didn't have any value. Skip it */
@@ -212,36 +208,37 @@ static int split_flag_name_and_value_at_equal_sign(Cli *cli, int curr_idx, char 
         }
 
         curr_idx += 1;
-        curr = cli->argv[curr_idx];
-        curr++;
-        curr_idx = cli_find_and_set_value(cli, curr_idx, curr, *flag_name, flag_value);
+        dash_stripped_curr = cli->argv[curr_idx];
+        dash_stripped_curr++;
+        curr_idx =
+            cli_find_and_set_value(cli, curr_idx, dash_stripped_curr, *flag_name, flag_value);
     }
 
     return curr_idx;
 }
 
 static inline bool cli_is_help_flag(char *flag_name, int flag_name_len) {
-    if (flag_name_len > 4) return false;
-    return (are_cstrings_equal("help", flag_name, flag_name_len) ||
-            are_cstrings_equal("help", flag_name, flag_name_len))
-               ? true
-               : false;
+    Debug_Assert(flag_name_len > 0);
+    if (flag_name_len == 1) return cast(bool)(*flag_name == 'h');
+    if (flag_name_len != 4) return false;
+    return cast(bool)(flag_name[0] == 'h' && flag_name[1] == 'e' && flag_name[2] == 'l' &&
+                      flag_name[3] == 'p');
 }
 
 static inline bool cli_is_flag_value_true(char *flag_value, int flag_value_len) {
     if (flag_value_len > 4) return false;
-    return (are_cstrings_equal("true", flag_value, strlen(flag_value)) ||
-            are_cstrings_equal("yes", flag_value, strlen(flag_value)) ||
-            are_cstrings_equal("y", flag_value, strlen(flag_value)))
+    return (are_cstrings_equal_length("true", flag_value, strlen(flag_value)) ||
+            are_cstrings_equal_length("yes", flag_value, strlen(flag_value)) ||
+            are_cstrings_equal_length("y", flag_value, strlen(flag_value)))
                ? true
                : false;
 }
 
 static inline bool cli_is_flag_value_false(char *flag_value, int flag_value_len) {
     if (flag_value_len > 5) return false;
-    return (are_cstrings_equal("false", flag_value, strlen(flag_value)) ||
-            are_cstrings_equal("no", flag_value, strlen(flag_value)) ||
-            are_cstrings_equal("n", flag_value, strlen(flag_value)))
+    return (are_cstrings_equal_length("false", flag_value, strlen(flag_value)) ||
+            are_cstrings_equal_length("no", flag_value, strlen(flag_value)) ||
+            are_cstrings_equal_length("n", flag_value, strlen(flag_value)))
                ? true
                : false;
 }
@@ -324,6 +321,7 @@ static void cli_set_found_flag_value(Cli *cli, Cli_Flag *found_flag, char *flag_
 int cli_parse_args(Cli *cli) {
     Cli_Flag *found_flag;
     char *flag_name, *flag_value;
+    u32 flag_name_len;
     int argv_idx, positionals_idx;
 
     argv_idx = 1;
@@ -342,13 +340,55 @@ int cli_parse_args(Cli *cli) {
         } else { /* Flag */
             flag_name = NULL;
             flag_value = NULL;
-            argv_idx =
-                split_flag_name_and_value_at_equal_sign(cli, argv_idx, &flag_name, &flag_value);
-            found_flag = cli_find_optional_flag(cli, flag_name);
 
-            if (cli_is_help_flag(flag_name, strlen(flag_name))) {
+            /* Strip dashes from arg */
+            char *dash_stripped_curr = cli->argv[argv_idx];
+            int dash_count = strip_dashes(&dash_stripped_curr);
+
+            /*
+             * Handle multiple short flags passed with '-'.
+             * All these flags will be considered boolean in nature.
+             * If say a Flag with value type integer is passed, it will be ignored.
+             * And a warning message will be printed.
+             *
+             * For example:
+             *   -hdlf  ---> h, d, l, f are all seperate flags, maybe all booleans, h for help etc
+             */
+            if (dash_count == 1 && strlen(dash_stripped_curr) > 1) { /* with single dash */
+                while (*dash_stripped_curr) {
+                    found_flag = cli_find_optional_flag_small(cli, dash_stripped_curr, 1);
+                    if (!found_flag) {
+                        if (cli_is_help_flag(dash_stripped_curr, 1)) {
+                            cli_handle_help_flag(cli, flag_name, flag_value);
+                            goto next_iter;
+                        }
+                        cli_report_warning(cli, "warning: ignoring %c\n", *dash_stripped_curr);
+                    } else if (found_flag->type != Cli_FlagType_Bool) {
+                        cli_report_warning(
+                            cli, "warning: ignoring -%c, expected flag type boolean, got %s\n",
+                            *dash_stripped_curr, flag_type_to_cstring[found_flag->type]);
+                    } else {
+                        cli_set_value_bool(cli, found_flag->value_ref._bool, dash_stripped_curr,
+                                           flag_value);
+                    }
+                    dash_stripped_curr++;
+                }
+
+                goto next_iter;
+            }
+
+            argv_idx = split_flag_name_and_value_at_equal_sign(
+                cli, argv_idx, dash_stripped_curr, &flag_name, &flag_name_len, &flag_value);
+
+            if (cli_is_help_flag(flag_name, flag_name_len)) {
                 cli_handle_help_flag(cli, flag_name, flag_value);
                 goto next_iter;
+            }
+
+            if (dash_count == 1) { /* Is short flag */
+                found_flag = cli_find_optional_flag_small(cli, flag_name, flag_name_len);
+            } else { /* Is big flag */
+                found_flag = cli_find_optional_flag_big(cli, flag_name, flag_name_len);
             }
 
             if (!found_flag) {

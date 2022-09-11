@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
     String rom = file_as_string(conf.rom_filepath);
     if (!rom) {
         eprintln("error: invaild file: %s", conf.rom_filepath);
-        return - 1;
+        return -1;
     }
 
     Cpu *cpu = make_cpu(cast(u8 *) rom, string_length(rom), cast(u16) conf.start_address);
